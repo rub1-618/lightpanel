@@ -4,7 +4,7 @@ use crate::dir_init::ensure_lpnl_directories;
 use crate::lpnl_init::init_lpnl;
 use crate::lpnl_remove::remove_lpnl;
 use crate::stats::current_machine_stats;
-use crate::error::{report_dir_init, report_init, report_remove};
+use crate::error::{report_error};
 
 mod dir_init;
 mod error;
@@ -30,23 +30,25 @@ enum Commands {
 }
 
 fn main() {
+    let args = Args::parse();
+
     match ensure_lpnl_directories() {
         Ok(_) => {},
-        Err(e) => report_dir_init(e),
-    }
-    let args = Args::parse();
+        Err(e) => report_error(e), 
+    } // ! works because inside the func it process::exits with code (1)
+
     match args.command {
         Commands::Stats => println!("{}", current_machine_stats()),
         Commands::Init { default } => {
             match init_lpnl(default) {
                 Ok(_) => (),
-                Err(e) => {report_init(e);}
+                Err(e) => {report_error(e);}
             }
         },
         Commands::Remove { force } => {
             match remove_lpnl(force) {
                 Ok(_) => (),
-                Err(e) => {report_remove(e);}
+                Err(e) => {report_error(e);}
             }
         },
         

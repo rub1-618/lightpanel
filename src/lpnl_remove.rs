@@ -1,13 +1,13 @@
 use std::{fs, io, path::PathBuf, process::Command};
 
-use crate::error::RemoveError;
+use crate::error::{LpnlError, RemoveErrorKind};
 
 const DEFAULT_DOMAIN: &str      = "localhost";
 const LPNL_BACKUP_DIR: &str     = "/etc/lpnl/backups";
 const NGINX_CONFIGS_DIR: &str   = "/etc/nginx/sites-enabled";
 const WWW_ROOT_DIR: &str        = "/var/www";
 
-pub fn remove_lpnl(is_forced: bool) -> Result<(), RemoveError> {
+pub fn remove_lpnl(is_forced: bool) -> Result<(), LpnlError> {
     let domain = match get_domain() {
         Ok(d) => d,
         Err(e) => return Err(e)
@@ -35,7 +35,7 @@ pub fn remove_lpnl(is_forced: bool) -> Result<(), RemoveError> {
     Ok(println!("Config removing done!"))
 }
 
-fn remove_ngnix(domain: String) -> Result<(), RemoveError> {
+fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
     let mut nginx_config_file = PathBuf::from(NGINX_CONFIGS_DIR);
     let conf_name = format!("{domain}.conf");
     nginx_config_file.push(conf_name);
@@ -50,8 +50,9 @@ fn remove_ngnix(domain: String) -> Result<(), RemoveError> {
 
     match fs::remove_file(nginx_config_file) {
         Ok(_) => println!("Ngnix config file in '/etc/nginx/sites-enabled' successfully deleted."),
-        Err(e) => return Err(RemoveError { 
-            message: format!("Unable to delete the config file in '/etc/nginx/sites-enabled': {e}.")
+        Err(e) => return Err(LpnlError::RemoveError { 
+            message: format!("Unable to delete the config file in '/etc/nginx/sites-enabled': {e}."), 
+            kind: RemoveErrorKind::FsFailure
         })
     }
 
@@ -63,13 +64,15 @@ fn remove_ngnix(domain: String) -> Result<(), RemoveError> {
                 println!("Config files successfully tested.")
             } else {
                 let status_code = status.code().unwrap_or_default();
-                return Err(RemoveError { 
-                    message: format!("Config files testing failed with status code: {status_code}.")
+                return Err(LpnlError::RemoveError { 
+                    message: format!("Config files testing failed with status code: {status_code}."),
+                    kind: RemoveErrorKind::InvalidCmdResult
                 })
             }
         },
-        Err(e) => return Err(RemoveError { 
-            message: format!("Config files testing processes failed: {e}.")
+        Err(e) => return Err(LpnlError::RemoveError { 
+            message: format!("Config files testing processes failed: {e}."),
+            kind: RemoveErrorKind::InvalidCmdResult
         })
     }
 
@@ -81,20 +84,22 @@ fn remove_ngnix(domain: String) -> Result<(), RemoveError> {
                 println!("Reload successful.")
             } else {
                 let status_code = status.code().unwrap_or_default();
-                return Err(RemoveError { 
-                    message: format!("Config files reloading failed with status code: {status_code}.")
+                return Err(LpnlError::RemoveError { 
+                    message: format!("Config files reloading failed with status code: {status_code}."),
+                    kind: RemoveErrorKind::InvalidCmdResult
                 })
             }
         },
-        Err(e) => return Err(RemoveError { 
-            message: format!("Config files reloading processes failed: {e}.")
+        Err(e) => return Err(LpnlError::RemoveError { 
+            message: format!("Config files reloading processes failed: {e}."),
+            kind: RemoveErrorKind::InvalidCmdResult
         })
     }
 
     Ok(())
 }
 
-fn remove_backup_configs(domain: String) -> Result<(), RemoveError> {
+fn remove_backup_configs(domain: String) -> Result<(), LpnlError> {
     let mut backup_config_file = PathBuf::from(LPNL_BACKUP_DIR);
     let conf_name = format!("{domain}.txt");
     backup_config_file.push(&domain);
@@ -109,7 +114,10 @@ fn remove_backup_configs(domain: String) -> Result<(), RemoveError> {
                 true => {
                     match fs::remove_dir(&backup_dir_only) {
                         Ok(_) => println!("Backup folder in '/etc/lpnl/backups' successfully deleted."),
-                        Err(e) => println!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}.")
+                        Err(e) => return Err(LpnlError::RemoveError {
+                            message: format!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}."),
+                            kind: RemoveErrorKind::FsFailure
+                        })
                     }
                     return Ok(());
                 }
@@ -120,17 +128,23 @@ fn remove_backup_configs(domain: String) -> Result<(), RemoveError> {
 
     match fs::remove_file(backup_config_file) {
         Ok(_) => println!("Backup config file in '/etc/lpnl/backups/{domain}' successfully deleted."),
-        Err(e) => println!("Unable to delete the config file in '/etc/lpnl/backups/{domain}': {e}.")
+        Err(e) => return Err(LpnlError::RemoveError {
+            message: format!("Unable to delete the config file in '/etc/lpnl/backups/{domain}': {e}."),
+            kind: RemoveErrorKind::FsFailure
+        })
     }
 
     match fs::remove_dir(backup_dir_only) {
         Ok(_) => println!("Backup folder in '/etc/lpnl/backups' successfully deleted."),
-        Err(e) => println!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}.")
+        Err(e) => return Err(LpnlError::RemoveError {
+            message: format!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}."),
+            kind: RemoveErrorKind::FsFailure
+        })
     }
     Ok(())
 }
 
-fn remove_www_files(domain: String) -> Result<(), RemoveError> {
+fn remove_www_files(domain: String) -> Result<(), LpnlError> {
     let mut default_root_dir = PathBuf::from(WWW_ROOT_DIR);
     default_root_dir.push(&domain);
     
@@ -144,25 +158,30 @@ fn remove_www_files(domain: String) -> Result<(), RemoveError> {
 
     match fs::remove_dir_all(default_root_dir) {
         Ok(_) => println!("Backup file in '/var/www/{domain}' successfully deleted."),
-        Err(e) => println!("Unable to delete the backup file in '/var/www/{domain}': {e}.")
+        Err(e) => return Err(LpnlError::RemoveError { 
+            message: format!("Unable to delete the backup file in '/var/www/{domain}': {e}."), 
+            kind: RemoveErrorKind::FsFailure
+        })
     }
     Ok(())
 }
 
-fn get_domain() -> Result<String, RemoveError> {
+fn get_domain() -> Result<String, LpnlError> {
     // todo: displaying enabled domains array for removing
     let mut input = String::new();
     println!("Domain: ");
     match io::stdin().read_line(&mut input) {
         Ok (_) => {},
-        Err(_) => return Err(RemoveError { 
-            message: "Could not get the domain.".to_string() 
+        Err(_) => return Err(LpnlError::RemoveError { 
+            message: "Could not get the domain.".to_string() ,
+            kind: RemoveErrorKind::IoFailure
         })
     }
 
     if input.contains("/") || input.contains("..") {
-        return Err(RemoveError{ 
-            message: "Invalid domain. '/', '..' and empty strings are not allowed.".to_string()
+        return Err(LpnlError::RemoveError { 
+            message: "Invalid domain. '/', '..' and empty strings are not allowed.".to_string(),
+            kind: RemoveErrorKind::InvalidDomain
         })
     }
 

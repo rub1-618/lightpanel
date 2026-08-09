@@ -1,34 +1,50 @@
 #[derive(Debug, Clone)]
-pub struct  DirInitializationError {
-    pub message: String,
+pub enum LpnlError {
+    DirInitError { message: String, kind: DirInitErrorKind },
+    InitError    { message: String, kind: InitErrorKind },
+    RemoveError  { message: String, kind: RemoveErrorKind },
+}
+
+pub fn report_error(error: LpnlError) {
+    match error {
+        LpnlError::DirInitError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(1);
+        },
+        LpnlError::InitError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(2);
+        },
+        LpnlError::RemoveError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(3);
+        },
+    }    
 }
 
 #[derive(Debug, Clone)]
-pub struct  InitializationError {
-    pub message: String,
+pub enum DirInitErrorKind {
+    LpnlCreationFailure,
+    BackupCreationFailure,
+    RootCreationFailure,
 }
 
 #[derive(Debug, Clone)]
-pub struct  RemoveError {
-    pub message: String,
+pub enum InitErrorKind {
+    AlreadyExists,
+    FsFailure,
+    IoFailure,
+    InvalidDomain,
+    InvalidPort,
+    InvalidRoot,
+    ConvertionFailure,
+    InvalidCmdResult,
 }
 
-pub fn report_dir_init(error: DirInitializationError) {
-    let text = error.message;
-    eprintln!("{text}");
-    std::process::exit(1);
+#[derive(Debug, Clone)]
+pub enum RemoveErrorKind {
+    FsFailure,
+    IoFailure,
+    InvalidDomain,
+    InvalidCmdResult,
 }
-
-pub fn report_init(error: InitializationError) {
-    let text = error.message;
-    eprintln!("{text}");
-    std::process::exit(2);
-}
-
-pub fn report_remove(error: RemoveError) {
-    let text = error.message;
-    eprintln!("{text}");
-    std::process::exit(3);
-}
-
-// todo: enum for all errors handling
