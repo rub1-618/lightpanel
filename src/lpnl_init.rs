@@ -41,12 +41,6 @@ pub fn init_lpnl(is_default: bool) -> Result<(), InitializationError> {
         }
     };
 
-    // ! creating the lpnl directory for All backups
-    match init_lpnl_dir() {
-        Ok(_) => {},
-        Err(e) => return Err(e),
-    }
-
     // ! creating the backup itself
     match init_backup_dir(domain.clone()) {
         Ok(_) => {},
@@ -64,32 +58,9 @@ pub fn init_lpnl(is_default: bool) -> Result<(), InitializationError> {
     Ok(println!("initialization finished successfully!"))
 }
 
-fn init_lpnl_dir() -> Result<(), InitializationError> {
-    let lpnl_dir = PathBuf::from(LPNL_DIR_STR);
-    match &lpnl_dir.exists() {
-        true  => Ok(()),
-        false => {
-            match fs::create_dir_all(&lpnl_dir) {
-                Ok(_)  => Ok(()),
-                Err(_) => Err(InitializationError { 
-                    message: "Unable to create lpnl directory.".to_string() 
-                })
-            }
-        }
-    }
-}
-
 fn init_backup_dir(domain: String) -> Result<(), InitializationError> {
     let mut backup_dir = PathBuf::from(LPNL_DIR_STR);
     backup_dir.push("backups");
-    if !&backup_dir.exists() {
-        match fs::create_dir_all(&backup_dir) {
-            Ok(_) => {},
-            Err(e) => return Err(InitializationError { 
-                message: format!("Unable to create a backup folder: {e}")
-            })
-        }
-    }
 
     let domain_dir = PathBuf::from(&domain);
     let mut current_backup_dir = backup_dir.clone();

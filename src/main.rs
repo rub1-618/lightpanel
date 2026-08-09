@@ -1,12 +1,16 @@
 use clap::{Parser, Subcommand};
 
+use crate::dir_init::ensure_lpnl_directories;
+use crate::lpnl_init::init_lpnl;
+use crate::lpnl_remove::remove_lpnl;
 use crate::stats::current_machine_stats;
-use crate::commads::init_lpnl;
-use crate::error::report_init;
+use crate::error::{report_dir_init, report_init, report_remove};
 
+mod dir_init;
 mod error;
 mod stats;
-mod commads;
+mod lpnl_init;
+mod lpnl_remove;
 
 #[derive(Parser)]
 #[command(version, name = "lpnl")]
@@ -22,10 +26,14 @@ struct Args {
 enum Commands {
     Stats,
     Init    { #[arg(long)] default: bool },
-    Config  { },
+    Remove  { #[arg(long)] force: bool },
 }
 
 fn main() {
+    match ensure_lpnl_directories() {
+        Ok(_) => {},
+        Err(e) => report_dir_init(e),
+    }
     let args = Args::parse();
     match args.command {
         Commands::Stats => println!("{}", current_machine_stats()),
@@ -35,6 +43,12 @@ fn main() {
                 Err(e) => {report_init(e);}
             }
         },
-        Commands::Config {  } => todo!()
+        Commands::Remove { force } => {
+            match remove_lpnl(force) {
+                Ok(_) => (),
+                Err(e) => {report_remove(e);}
+            }
+        },
+        
     }
 }
