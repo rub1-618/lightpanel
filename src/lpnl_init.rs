@@ -30,7 +30,7 @@ pub fn init_lpnl(is_default: bool) -> Result<(), InitializationError> {
 
     // ! root init and path recieving
     let root: String = if !is_default {
-        match get_root_dir() {
+        match get_root_dir(domain.clone()) {
             Ok(p) => p,
             Err(e) => return Err(e)
         }
@@ -105,6 +105,7 @@ fn get_domain() -> Result<String, InitializationError> {
             message: "Could not get the domain.".to_string() 
         })
     }
+    print!("\n");
 
     if input.contains("/") || input.contains("..") {
         return Err(InitializationError{ 
@@ -146,9 +147,9 @@ fn get_port() -> Result<u16, InitializationError> {
     Ok(port)
 }
 
-fn get_root_dir() -> Result<String, InitializationError> {
+fn get_root_dir(domain: String) -> Result<String, InitializationError> {
     let mut input = String::new();
-    println!("Server root directory: ");
+    println!("Server root directory (default is '/var/www'): ");
     match io::stdin().read_line(&mut input) {
         Ok (_) => {},
         Err(_) => return Err(InitializationError { 
@@ -158,8 +159,7 @@ fn get_root_dir() -> Result<String, InitializationError> {
     print!("\n");
 
     if input.trim().is_empty() {
-        let root = DEFAULT_ROOT.to_string();
-        return Ok(root);
+        return init_root_dir(&domain)
     }
 
     if input.trim().contains("..") {
@@ -288,8 +288,8 @@ fn init_nginx(domain: String, config: String, test_cofing: String, root: String)
         })
     }
 
-    // * initializing to sites available
-    let mut init_dir = PathBuf::from("/etc/nginx/sites-available");
+    // * initializing to sites enabled
+    let mut init_dir = PathBuf::from("/etc/nginx/sites-enabled");
     let conf_name = format!("{domain}.conf");
     init_dir.push(conf_name);
     match fs::write(init_dir.clone(), &config) {

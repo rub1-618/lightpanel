@@ -4,7 +4,7 @@ use crate::error::RemoveError;
 
 const DEFAULT_DOMAIN: &str      = "localhost";
 const LPNL_BACKUP_DIR: &str     = "/etc/lpnl/backups";
-const NGINX_CONFIGS_DIR: &str   = "/etc/nginx/sites-available";
+const NGINX_CONFIGS_DIR: &str   = "/etc/nginx/sites-enabled";
 const WWW_ROOT_DIR: &str        = "/var/www";
 
 pub fn remove_lpnl(is_forced: bool) -> Result<(), RemoveError> {
@@ -41,17 +41,17 @@ fn remove_ngnix(domain: String) -> Result<(), RemoveError> {
     nginx_config_file.push(conf_name);
     
     match nginx_config_file.exists() {
-        true => println!("Config file in '/etc/nginx/sites-available' found. Deleting it..."),
+        true => println!("Config file in '/etc/nginx/sites-enabled' found. Deleting it..."),
         false => {
-            println!("No '{domain}' config file in '/etc/nginx/sites-available' found.");
+            println!("No '{domain}' config file in '/etc/nginx/sites-enabled' found.");
             return Ok(())
         }
     }
 
     match fs::remove_file(nginx_config_file) {
-        Ok(_) => println!("Ngnix config file in '/etc/nginx/sites-available' successfully deleted."),
+        Ok(_) => println!("Ngnix config file in '/etc/nginx/sites-enabled' successfully deleted."),
         Err(e) => return Err(RemoveError { 
-            message: format!("Unable to delete the config file in '/etc/nginx/sites-available': {e}.")
+            message: format!("Unable to delete the config file in '/etc/nginx/sites-enabled': {e}.")
         })
     }
 
@@ -98,21 +98,34 @@ fn remove_backup_configs(domain: String) -> Result<(), RemoveError> {
     let mut backup_config_file = PathBuf::from(LPNL_BACKUP_DIR);
     let conf_name = format!("{domain}.txt");
     backup_config_file.push(&domain);
+    let backup_dir_only = backup_config_file.clone();
     backup_config_file.push(conf_name);
     
     match backup_config_file.exists() {
         true => println!("Config file in '/etc/lpnl/backups/{domain}' found. Deleting it..."),
         false => {
             println!("No '{domain}' config file in '/etc/lpnl/backups/{domain}' found.");
-            return Ok(())
+            match backup_dir_only.exists() {
+                true => {
+                    match fs::remove_dir(&backup_dir_only) {
+                        Ok(_) => println!("Backup folder in '/etc/lpnl/backups' successfully deleted."),
+                        Err(e) => println!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}.")
+                    }
+                    return Ok(());
+                }
+                false => return Ok(())
+            }
         }
     }
 
     match fs::remove_file(backup_config_file) {
         Ok(_) => println!("Backup config file in '/etc/lpnl/backups/{domain}' successfully deleted."),
-        Err(e) => return Err(RemoveError { 
-            message: format!("Unable to delete the config file in '/etc/lpnl/backups/{domain}': {e}.")
-        })
+        Err(e) => println!("Unable to delete the config file in '/etc/lpnl/backups/{domain}': {e}.")
+    }
+
+    match fs::remove_dir(backup_dir_only) {
+        Ok(_) => println!("Backup folder in '/etc/lpnl/backups' successfully deleted."),
+        Err(e) => println!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}.")
     }
     Ok(())
 }
@@ -131,15 +144,13 @@ fn remove_www_files(domain: String) -> Result<(), RemoveError> {
 
     match fs::remove_dir_all(default_root_dir) {
         Ok(_) => println!("Backup file in '/var/www/{domain}' successfully deleted."),
-        Err(e) => return Err(RemoveError { 
-            message: format!("Unable to delete the backup file in '/var/www/{domain}': {e}.")
-        })
+        Err(e) => println!("Unable to delete the backup file in '/var/www/{domain}': {e}.")
     }
     Ok(())
 }
 
 fn get_domain() -> Result<String, RemoveError> {
-    // todo: displaying available domains array for removing
+    // todo: displaying enabled domains array for removing
     let mut input = String::new();
     println!("Domain: ");
     match io::stdin().read_line(&mut input) {
