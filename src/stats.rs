@@ -9,7 +9,7 @@ pub fn current_machine_stats() -> String {
     let current_cpu_usage = sys.global_cpu_usage();
     
     let current_cpu_temp = match cpu_temp() {
-        Some(t) => format!("{}°C", t),
+        Some(t) => format!("{} °C", t),
         None => "CPU temperature unknown.".to_string()
     };
 
@@ -18,7 +18,7 @@ pub fn current_machine_stats() -> String {
     let ram_total = sys.total_memory() as f64 / 1073741824.0;
 
     format!("
-    CPU usage: {current_cpu_usage}      \n
+    CPU usage: {current_cpu_usage} %    \n
     CPU temp:  {current_cpu_temp}       \n
     RAM usage: {ram_used} / {ram_total} \n
     ")

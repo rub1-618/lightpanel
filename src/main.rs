@@ -1,39 +1,40 @@
-use std::env;
+use clap::{Parser, Subcommand};
 
 use crate::stats::current_machine_stats;
+use crate::commads::init_lpnl;
+use crate::error::report_init;
 
-mod codegen;
+mod error;
 mod stats;
+mod commads;
+
+#[derive(Parser)]
+#[command(version, name = "lpnl")]
+struct Args {
+    #[arg(short, long)]
+    verbose: bool,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Stats,
+    Init    { #[arg(long)] default: bool },
+    Config  { },
+}
 
 fn main() {
-    // possible arguments
-    let init_arg: String  = "init".to_string();
-    let stats_arg: String = "stats".to_string();
-    let usage_arg: String = "usage".to_string();
-    let log_arg: String   = "log".to_string();
-
-    // arguments matching
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        panic!("Expected an argument.");
-    }
-
-    else if args.len() == 2 {
-        match &args[1] {
-
-            init_arg  => todo!(),
-            
-            stats_arg => {
-                let stats_str = current_machine_stats();
-                println!("{stats_str}")
-            },
-
-            usage_arg => todo!(),
-
-            log_arg   => todo!(),
-
-            _                  => panic!("Unknown argument.")
-        
-        }
+    let args = Args::parse();
+    match args.command {
+        Commands::Stats => println!("{}", current_machine_stats()),
+        Commands::Init { default } => {
+            match init_lpnl(default) {
+                Ok(_) => (),
+                Err(e) => {report_init(e);}
+            }
+        },
+        Commands::Config {  } => todo!()
     }
 }
