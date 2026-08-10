@@ -1,5 +1,4 @@
 use sysinfo::{Disks, Components, MINIMUM_CPU_UPDATE_INTERVAL, System};
-// use std::{thread, time};
 
 pub fn current_machine_stats() -> String {
     let mut sys: System = System::new();
@@ -18,6 +17,11 @@ pub fn current_machine_stats() -> String {
         None => "unknown".to_string()
     };
     let kernel_ver = System::kernel_long_version();
+
+    let uptime_total_secs = System::uptime();
+    let uptime_hours = uptime_total_secs / 3600;
+    let uptime_minutes = (uptime_total_secs - uptime_hours * 3600) / 60;
+    let uptime_secs = uptime_total_secs - uptime_hours * 3600 - uptime_minutes * 60;
 
     // ! CPU
     sys.refresh_cpu_all();
@@ -51,10 +55,11 @@ pub fn current_machine_stats() -> String {
     }
 
     format!("
-    Host name:          {host_name} \n
-    System name:        {system_name} \n
-    OS version:         {os_ver} \n
-    Kernel version:     {kernel_ver} \n
+    Host name:          {host_name}     \n
+    System name:        {system_name}   \n
+    OS version:         {os_ver}        \n
+    Kernel version:     {kernel_ver}    \n
+    Uptime:             {uptime_hours}:{uptime_minutes}:{uptime_secs}        \n
 
     ------------------------------------------
 
