@@ -82,6 +82,9 @@ fn init_backup_dir(domain: String) -> Result<(), LpnlError> {
 
 // returns String so that root path can be used in main initialization later
 fn init_root_dir(domain: &str) -> Result<String, LpnlError> {
+    let domain = if domain.trim().is_empty() {
+        DEFAULT_DOMAIN
+    } else { domain.trim() };
     let mut root_dir = PathBuf::from(DEFAULT_ROOT);
     let domain_as_dir = PathBuf::from(domain);
     root_dir.push(domain_as_dir);
@@ -147,7 +150,7 @@ fn get_port() -> Result<u16, LpnlError> {
 
         let port: u16 = match input.trim().parse() {
             Ok(p) => p,
-            Err(_) => {eprintln!("Expected an integer value."); continue;}
+            Err(_) => {eprintln!("Expected an 'u16' integer value."); continue;}
         };
 
         return Ok(port)
@@ -390,7 +393,7 @@ mod tests {
             Ok(p) => p,
             Err(_) => {
                 return Err(LpnlError::InitError{
-                    message: "Expected an integer value.".to_string(),
+                    message: "Expected an 'u16'  integer value.".to_string(),
                     kind: InitErrorKind::InvalidPort
                 })
             }
@@ -402,7 +405,7 @@ mod tests {
     // * root logic test copy
     fn check_root(root: String) -> Result<String, LpnlError> {
     if root.trim().is_empty() {
-            return init_root_dir(&root)
+            return Ok(DEFAULT_ROOT.to_string())
         }
 
         if root.trim().contains("..") {
@@ -421,10 +424,10 @@ mod tests {
 
     #[test]
     fn test_init_get_domain_ok() {
-        let domain = check_domain("hello_world".to_string());
+        let domain = check_domain("example.com".to_string());
         match domain {
             Err(_) => panic!("Unexpected Error."),
-            Ok(d) => assert_eq!(d, "hello_world".to_string())
+            Ok(d) => assert_eq!(d, "example.com".to_string())
         }
     }
 
@@ -441,6 +444,15 @@ mod tests {
                 }
             }
             Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_init_get_domain_spaces_err() {
+        let domain = check_domain("    ".to_string());
+        match domain {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(d) => assert_eq!(d, "localhost")
         }
     }
 
@@ -481,6 +493,32 @@ mod tests {
     }
 
     #[test]
+    fn test_init_get_port_spaces_err() {
+        let port = check_port("    ".to_string());
+        match port {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(s) => assert_eq!(s, 8080)
+        }
+    }
+
+    #[test]
+    fn test_init_get_port_u16() {
+        let port = check_port("80800".to_string());
+        match port {
+            Err(e) => {
+                match e {
+                    LpnlError::InitError { kind, .. } => {
+                        assert!(matches!(kind, InitErrorKind::InvalidPort))
+                    }
+                    _ => panic!("Expected InitError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+
+    #[test]
     fn test_init_default_port() {
         let port = check_port("".to_string());
         match port {
@@ -517,11 +555,20 @@ mod tests {
     }
 
     #[test]
+    fn test_init_get_root_spaces_err() {
+        let root = check_root("    ".to_string());
+        match root {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(r) => assert_eq!(r, "/var/www")
+        }
+    }
+
+    #[test]
     fn test_init_default_root() {
         let root = check_root("".to_string());
         match root {
             Err(_) => panic!("Unexpected Error."),
-            Ok(r) => assert_eq!(r, "/var/www/")
+            Ok(r) => assert_eq!(r, "/var/www")
         }
     }
 }
