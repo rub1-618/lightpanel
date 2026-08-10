@@ -2,7 +2,6 @@ use std::{fs, io, path::PathBuf, process::Command};
 
 use crate::error::{LpnlError, RemoveErrorKind};
 
-const DEFAULT_DOMAIN: &str      = "localhost";
 const LPNL_BACKUP_DIR: &str     = "/etc/lpnl/backups";
 const NGINX_CONFIGS_DIR: &str   = "/etc/nginx/sites-enabled";
 const WWW_ROOT_DIR: &str        = "/var/www";
@@ -168,28 +167,23 @@ fn remove_www_files(domain: String) -> Result<(), LpnlError> {
 
 fn get_domain() -> Result<String, LpnlError> {
     // todo: displaying enabled domains array for removing
-    let mut input = String::new();
-    println!("Domain: ");
-    match io::stdin().read_line(&mut input) {
-        Ok (_) => {},
-        Err(_) => return Err(LpnlError::RemoveError { 
-            message: "Could not get the domain.".to_string() ,
-            kind: RemoveErrorKind::IoFailure
-        })
+    loop {
+        let mut input = String::new();
+        println!("Domain: ");
+        match io::stdin().read_line(&mut input) {
+            Ok (_) => {},
+            Err(_) => return Err(LpnlError::RemoveError { 
+                message: "Could not get the domain.".to_string() ,
+                kind: RemoveErrorKind::IoFailure
+            })
+        }
+
+        if input.contains("/") || input.contains("..") || input.trim().is_empty() {
+            eprintln!("'/', '..' and empty strings are not allowed.");
+            continue;
+        }
+
+        let domain = input.trim().to_string();
+        return  Ok(domain)
     }
-
-    if input.contains("/") || input.contains("..") {
-        return Err(LpnlError::RemoveError { 
-            message: "Invalid domain. '/', '..' and empty strings are not allowed.".to_string(),
-            kind: RemoveErrorKind::InvalidDomain
-        })
-    }
-
-    if input.trim().is_empty() {
-        let domain: String = DEFAULT_DOMAIN.to_string();
-        return Ok(domain);
-    };
-
-    let domain = input.trim().to_string();
-    Ok(domain)
 }
