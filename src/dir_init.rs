@@ -45,5 +45,5 @@ pub fn ensure_lpnl_directories() -> Result<(), LpnlError> {
         }
     }
 
-    Ok(println!("All lpnl directories initialized."))
+    Ok(())
 }
