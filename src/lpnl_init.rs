@@ -100,93 +100,91 @@ fn init_root_dir(domain: &str) -> Result<String, LpnlError> {
 }
 
 fn get_domain() -> Result<String, LpnlError> {
-    let mut input = String::new();
-    println!("Domain (default is 'localhost'): ");
-    match io::stdin().read_line(&mut input) {
-        Ok (_) => {},
-        Err(_) => return Err(LpnlError::InitError { 
-            message: "Could not get the domain.".to_string(), 
-            kind: InitErrorKind::IoFailure
-        })
+    loop {
+        let mut input = String::new();
+        println!("Domain (default is 'localhost'): ");
+        match io::stdin().read_line(&mut input) {
+            Ok (_) => {},
+            Err(_) => return Err(LpnlError::InitError { 
+                message: "Could not get the domain.".to_string(), 
+                kind: InitErrorKind::IoFailure
+            })
+        }
+        print!("\n");
+
+        if input.contains("/") || input.contains("..") {
+            eprintln!("'/' and '..' are not allowed.");
+            continue;
+        }
+
+        if input.trim().is_empty() {
+            let domain: String = DEFAULT_DOMAIN.to_string();
+            return Ok(domain);
+        };
+
+        let domain = input.trim().to_string();
+        return Ok(domain)
     }
-    print!("\n");
-
-    if input.contains("/") || input.contains("..") {
-        return Err(LpnlError::InitError { 
-            message: "'/', '..' and empty strings are not allowed.".to_string(), 
-            kind: InitErrorKind::InvalidDomain
-        })
-    }
-
-    if input.trim().is_empty() {
-        let domain: String = DEFAULT_DOMAIN.to_string();
-        return Ok(domain);
-    };
-
-    let domain = input.trim().to_string();
-    Ok(domain)
 }
 
 fn get_port() -> Result<u16, LpnlError> {
-    let mut input = String::new();
-    println!("Port (default is '8080'): ");
-    match io::stdin().read_line(&mut input) {
-        Ok (_) => {},
-        Err(_) => return Err(LpnlError::InitError { 
-            message: "Could not get the port.".to_string(), 
-            kind: InitErrorKind::IoFailure
-        })
+    loop {
+        let mut input = String::new();
+        println!("Port (default is '8080'): ");
+        match io::stdin().read_line(&mut input) {
+            Ok (_) => {},
+            Err(_) => return Err(LpnlError::InitError { 
+                message: "Could not get the port.".to_string(), 
+                kind: InitErrorKind::IoFailure
+            })
+        }
+        print!("\n");
+
+        if input.trim().is_empty() {
+            let port: u16 = DEFAULT_PORT;
+            return Ok(port);
+        };
+
+        let port: u16 = match input.trim().parse() {
+            Ok(p) => p,
+            Err(_) => {eprintln!("Expected an integer value."); continue;}
+        };
+
+        return Ok(port)
     }
-    print!("\n");
-
-    if input.trim().is_empty() {
-        let port: u16 = DEFAULT_PORT;
-        return Ok(port);
-    };
-
-    let port: u16 = match input.trim().parse() {
-        Ok(p) => p,
-        Err(_) => return Err(LpnlError::InitError { 
-            message: "Expected an integer value.".to_string(), 
-            kind: InitErrorKind::InvalidPort
-        })
-    };
-    Ok(port)
 }
 
 fn get_root_dir(domain: String) -> Result<String, LpnlError> {
-    let mut input = String::new();
-    println!("Server root directory (default is '/var/www'): ");
-    match io::stdin().read_line(&mut input) {
-        Ok (_) => {},
-        Err(_) => return Err(LpnlError::InitError { 
-            message: "Could not get the root directory.".to_string(), 
-            kind: InitErrorKind::FsFailure
-        })
+    loop {
+        let mut input = String::new();
+        println!("Server root directory (default is '/var/www'): ");
+        match io::stdin().read_line(&mut input) {
+            Ok (_) => {},
+            Err(_) => return Err(LpnlError::InitError { 
+                message: "Could not get the root directory.".to_string(), 
+                kind: InitErrorKind::FsFailure
+            })
+        }
+        print!("\n");
+
+        if input.trim().is_empty() {
+            return init_root_dir(&domain)
+        }
+
+        if input.trim().contains("..") {
+            eprintln!("Server root directory should not contain '..'.");
+            continue;
+        }
+
+        let dir = PathBuf::from(input.trim());
+
+        if !dir.exists() {
+            eprintln!("This directory does not exist.");
+            continue;
+        }
+
+        return Ok(dir.to_str().unwrap().to_string())
     }
-    print!("\n");
-
-    if input.trim().is_empty() {
-        return init_root_dir(&domain)
-    }
-
-    if input.trim().contains("..") {
-        return Err(LpnlError::InitError { 
-            message: "Server root directory should not contain '..'.".to_string(), 
-            kind: InitErrorKind::InvalidRoot
-        })
-    }
-
-    let dir = PathBuf::from(input.trim());
-
-    if !dir.exists() {
-        return Err(LpnlError::InitError { 
-            message: "This directory does not exist.".to_string(), 
-            kind: InitErrorKind::AlreadyExists
-        })
-    }
-
-    Ok(dir.to_str().unwrap().to_string())
 }
 
 fn generate_config(domain: String, port: u16, root: String, is_for_test: bool) -> String {
@@ -357,4 +355,173 @@ fn init_nginx(domain: String, config: String, test_cofing: String, root: String)
     }
 
     Ok(println!("Generated nginx config to: '{root}'."))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // * domain logic test copy
+    fn check_domain(domain: String) -> Result<String, LpnlError> {
+        if domain.contains("/") || domain.contains("..") {
+            return Err(LpnlError::InitError { 
+                message: "'/', '..' and empty strings are not allowed.".to_string(), 
+                kind: InitErrorKind::InvalidDomain
+            })
+        }
+
+        if domain.trim().is_empty() {
+            let domain: String = DEFAULT_DOMAIN.to_string();
+            return Ok(domain);
+        };
+
+        let domain = domain.trim().to_string();
+        Ok(domain)
+    }
+
+    // * port logic test copy
+    fn check_port(port: String) -> Result<u16, LpnlError>  {
+        if port.trim().is_empty() {
+            let port: u16 = DEFAULT_PORT;
+            return Ok(port);
+        };
+
+        let uport: u16 = match port.trim().parse() {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(LpnlError::InitError{
+                    message: "Expected an integer value.".to_string(),
+                    kind: InitErrorKind::InvalidPort
+                })
+            }
+        };
+
+        return Ok(uport)
+    }
+
+    // * root logic test copy
+    fn check_root(root: String) -> Result<String, LpnlError> {
+    if root.trim().is_empty() {
+            return init_root_dir(&root)
+        }
+
+        if root.trim().contains("..") {
+            return Err(LpnlError::InitError {
+                message: "Server root directory should not contain '..'.".to_string(),
+                kind: InitErrorKind::InvalidRoot
+            })
+        }
+
+        let dir = PathBuf::from(root.trim());
+
+        return Ok(dir.to_str().unwrap().to_string())
+    }
+
+    // ! domain tests
+
+    #[test]
+    fn test_init_get_domain_ok() {
+        let domain = check_domain("hello_world".to_string());
+        match domain {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(d) => assert_eq!(d, "hello_world".to_string())
+        }
+    }
+
+    #[test]
+    fn test_init_get_domain_err() {
+        let domain = check_domain("/..domain".to_string());
+        match domain {
+            Err(e) => {
+                match e {
+                    LpnlError::InitError { kind, .. } => {
+                        assert!(matches!(kind, InitErrorKind::InvalidDomain))
+                    }
+                    _ => panic!("Expected InitError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_init_default_domain() {
+        let domain = check_domain("".to_string());
+        match domain {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(d) => assert_eq!(d, "localhost")
+        }
+    }
+
+    // ! port tests
+
+    #[test]
+    fn test_init_get_port_ok() {
+        let port = check_port("80".to_string());
+        match port {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(p) => assert_eq!(p, 80)
+        }
+    }
+
+    #[test]
+    fn test_init_get_port_err() {
+        let port = check_port("hello_world".to_string());
+        match port {
+            Err(e) => {
+                match e {
+                    LpnlError::InitError { kind, .. } => {
+                        assert!(matches!(kind, InitErrorKind::InvalidPort))
+                    }
+                    _ => panic!("Expected InitError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_init_default_port() {
+        let port = check_port("".to_string());
+        match port {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(s) => assert_eq!(s, 8080)
+        }
+    }
+
+    // ! root tests
+
+    #[test]
+    fn test_init_get_root_ok() {
+        let root = check_root("/var/www".to_string());
+        match root {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(d) => assert_eq!(d, "/var/www".to_string())
+        }
+    }
+
+    #[test]
+    fn test_init_get_root_err() {
+        let root = check_root("/../hello".to_string());
+        match root {
+            Err(e) => {
+                match e {
+                    LpnlError::InitError { kind, .. } => {
+                        assert!(matches!(kind, InitErrorKind::InvalidRoot))
+                    }
+                    _ => panic!("Expected InitError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_init_default_root() {
+        let root = check_root("".to_string());
+        match root {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(r) => assert_eq!(r, "/var/www/")
+        }
+    }
 }

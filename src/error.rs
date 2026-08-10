@@ -34,8 +34,11 @@ pub enum InitErrorKind {
     AlreadyExists,
     FsFailure,
     IoFailure,
+    #[allow(dead_code)]
     InvalidDomain,
+    #[allow(dead_code)]
     InvalidPort,
+    #[allow(dead_code)]
     InvalidRoot,
     ConvertionFailure,
     InvalidCmdResult,
@@ -45,6 +48,5 @@ pub enum InitErrorKind {
 pub enum RemoveErrorKind {
     FsFailure,
     IoFailure,
-    InvalidDomain,
     InvalidCmdResult,
 }
