@@ -187,3 +187,80 @@ fn get_domain() -> Result<String, LpnlError> {
         return  Ok(domain)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // * domain logic test copy
+    fn check_domain(domain: String) -> Result<String, LpnlError> {
+        if domain.contains("/") || domain.contains("..") || domain.trim().is_empty() {
+            return Err(LpnlError::RemoveError{
+                message: "'/', '..' and empty strings are not allowed.".to_string(),
+                kind: RemoveErrorKind::InvalidDomain
+            })
+        }
+
+        let domain = domain.trim().to_string();
+        return Ok(domain)
+    }
+
+    // ! domain tests
+
+    #[test]
+    fn test_remove_get_domain_ok() {
+        let domain = check_domain("bye_world".to_string());
+        match domain {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(d) => assert_eq!(d, "bye_world".to_string())
+        }
+    }
+
+    #[test]
+    fn test_remove_default_domain_empty_err() {
+        let domain = check_domain("".to_string());
+        match domain {
+            Err(e) => {
+                match e {
+                    LpnlError::RemoveError { kind, .. } => {
+                        assert!(matches!(kind, RemoveErrorKind::InvalidDomain))
+                    }
+                    _ => panic!("Expected RemoveError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_remove_default_domain_spaces_err() {
+        let domain = check_domain("    ".to_string());
+        match domain {
+            Err(e) => {
+                match e {
+                    LpnlError::RemoveError { kind, .. } => {
+                        assert!(matches!(kind, RemoveErrorKind::InvalidDomain))
+                    }
+                    _ => panic!("Expected RemoveError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_remove_default_invalid_str_err() {
+        let domain = check_domain("/..".to_string());
+        match domain {
+            Err(e) => {
+                match e {
+                    LpnlError::RemoveError { kind, .. } => {
+                        assert!(matches!(kind, RemoveErrorKind::InvalidDomain))
+                    }
+                    _ => panic!("Expected RemoveError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+}
