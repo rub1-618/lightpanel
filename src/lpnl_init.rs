@@ -1,11 +1,6 @@
-use std::{fs, io, path::PathBuf, process::Command};
-
+use crate::constants::{DEFAULT_DOMAIN, DEFAULT_PORT, LPNL_BACKUP_DIR, LPNL_MAIN_DIR, LPNL_TMP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
 use crate::error::{InitErrorKind, LpnlError};
-
-const LPNL_DIR_STR: &str = "/etc/lpnl";
-const DEFAULT_PORT: u16 = 8080;
-const DEFAULT_DOMAIN: &str = "localhost";
-const DEFAULT_ROOT: &str = "/var/www";
+use std::{fs, io, path::PathBuf, process::Command};
 
 pub fn init_lpnl(is_default: bool) -> Result<(), LpnlError> {
     // * domain recieving
@@ -59,7 +54,7 @@ pub fn init_lpnl(is_default: bool) -> Result<(), LpnlError> {
 }
 
 fn init_backup_dir(domain: String) -> Result<(), LpnlError> {
-    let mut backup_dir = PathBuf::from(LPNL_DIR_STR);
+    let mut backup_dir = PathBuf::from(LPNL_MAIN_DIR);
     backup_dir.push("backups");
 
     let domain_dir = PathBuf::from(&domain);
@@ -85,7 +80,7 @@ fn init_root_dir(domain: &str) -> Result<String, LpnlError> {
     let domain = if domain.trim().is_empty() {
         DEFAULT_DOMAIN
     } else { domain.trim() };
-    let mut root_dir = PathBuf::from(DEFAULT_ROOT);
+    let mut root_dir = PathBuf::from(WWW_ROOT_DIR);
     let domain_as_dir = PathBuf::from(domain);
     root_dir.push(domain_as_dir);
     match &root_dir.exists() {
@@ -160,7 +155,7 @@ fn get_port() -> Result<u16, LpnlError> {
 fn get_root_dir(domain: String) -> Result<String, LpnlError> {
     loop {
         let mut input = String::new();
-        println!("Server root directory (default is '/var/www'): ");
+        println!("Server root directory (default is '{WWW_ROOT_DIR}'): ");
         match io::stdin().read_line(&mut input) {
             Ok (_) => {},
             Err(_) => return Err(LpnlError::InitError { 
@@ -232,7 +227,7 @@ fn generate_config(domain: String, port: u16, root: String, is_for_test: bool) -
 fn init_nginx(domain: String, config: String, test_cofing: String, root: String) -> Result<(), LpnlError> {
 
     // * testing
-    let mut test_dir = PathBuf::from("/etc/lpnl/tmp");
+    let mut test_dir = PathBuf::from(LPNL_TMP_DIR);
     match &test_dir.exists() {
         true  => {},
         false => {
@@ -288,7 +283,7 @@ fn init_nginx(domain: String, config: String, test_cofing: String, root: String)
     }
 
     // * creating a backup file in /etc/lpnl/backups
-    let mut backup_dir = PathBuf::from("/etc/lpnl/backups");
+    let mut backup_dir = PathBuf::from(LPNL_BACKUP_DIR);
     backup_dir.push(&domain);
     let backup_file = format!("{domain}.txt");
     match fs::create_dir_all(&backup_dir) {
@@ -308,7 +303,7 @@ fn init_nginx(domain: String, config: String, test_cofing: String, root: String)
     }
 
     // * initializing to sites enabled
-    let mut init_dir = PathBuf::from("/etc/nginx/sites-enabled");
+    let mut init_dir = PathBuf::from(NGINX_SITES_ENABLED_DIR);
     let conf_name = format!("{domain}.conf");
     init_dir.push(conf_name);
     match fs::write(init_dir.clone(), &config) {
@@ -405,7 +400,7 @@ mod tests {
     // * root logic test copy
     fn check_root(root: String) -> Result<String, LpnlError> {
     if root.trim().is_empty() {
-            return Ok(DEFAULT_ROOT.to_string())
+            return Ok(WWW_ROOT_DIR.to_string())
         }
 
         if root.trim().contains("..") {

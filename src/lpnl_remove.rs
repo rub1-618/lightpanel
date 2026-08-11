@@ -1,10 +1,6 @@
-use std::{fs, io, path::PathBuf, process::Command};
-
+use crate::constants::{LPNL_BACKUP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
 use crate::error::{LpnlError, RemoveErrorKind};
-
-const LPNL_BACKUP_DIR: &str     = "/etc/lpnl/backups";
-const NGINX_CONFIGS_DIR: &str   = "/etc/nginx/sites-enabled";
-const WWW_ROOT_DIR: &str        = "/var/www";
+use std::{fs, io, path::PathBuf, process::Command};
 
 pub fn remove_lpnl(is_forced: bool) -> Result<(), LpnlError> {
     let domain = match get_domain() {
@@ -35,7 +31,7 @@ pub fn remove_lpnl(is_forced: bool) -> Result<(), LpnlError> {
 }
 
 fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
-    let mut nginx_config_file = PathBuf::from(NGINX_CONFIGS_DIR);
+    let mut nginx_config_file = PathBuf::from(NGINX_SITES_ENABLED_DIR);
     let conf_name = format!("{domain}.conf");
     nginx_config_file.push(conf_name);
     

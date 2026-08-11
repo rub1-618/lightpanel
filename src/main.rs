@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 use crate::error::{report_error};
 
+mod constants;
 mod dir_init;
 mod error;
 mod stats;
