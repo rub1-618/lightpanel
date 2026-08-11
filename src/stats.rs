@@ -1,6 +1,6 @@
 use sysinfo::{Disks, Components, MINIMUM_CPU_UPDATE_INTERVAL, System};
 
-pub fn current_machine_stats() -> String {
+pub fn short_stats() -> String {
     let mut sys: System = System::new();
 
     // ! SYSTEM DATA
@@ -39,35 +39,18 @@ pub fn current_machine_stats() -> String {
     let ram_used = (sys.used_memory() as f64 / 1073741824.0 * 100.0).round() / 100.0;
     let ram_total = (sys.total_memory() as f64 / 1073741824.0 * 100.0).round() / 100.0;
 
-    // ! DISK
-    let disks = Disks::new_with_refreshed_list();
-    let mut disks_info = String::new();
-    for disk in disks.list() {
-        let used = disk.total_space() - disk.available_space();
-        let disk_str = format!("
-        Disk name:       {:?}   
-        Disk kind:       {}   
-        Used storage:    {} / {}
-        Available space: {} \n",
-        disk.name(), disk.kind(), used, disk.total_space(), disk.available_space());
-        
-        disks_info.push_str(&disk_str);
-    }
-
     format!("
     Host name:          {host_name}     \n
     System name:        {system_name}   \n
     OS version:         {os_ver}        \n
     Kernel version:     {kernel_ver}    \n
-    Uptime:             {uptime_hours}:{uptime_minutes}:{uptime_secs}        \n
+    Uptime:             {uptime_hours}:{uptime_minutes}:{uptime_secs}
 
     ------------------------------------------
 
     CPU usage: {current_cpu_usage} %        \n
     CPU temp:  {current_cpu_temp}           \n
-    RAM usage: {ram_used} / {ram_total} GB  \n
-    Disks:                                  \n   
-    {disks_info}             
+    RAM usage: {ram_used} / {ram_total} GB  \n        
     ")
 }
 
@@ -81,4 +64,51 @@ fn cpu_temp() -> Option<f32> {
         }
     }
     None
+}
+
+    // ! DISKS
+pub fn disk_stats() -> String {
+    let disks = Disks::new_with_refreshed_list();
+    let mut disks_info = String::new();
+    disks_info.push_str("Disks:\n");
+    for disk in disks.list() {
+        let used = disk.total_space() / 1073741824 - disk.available_space() / 1073741824;
+        let total_space = disk.total_space() / 1073741824;
+        let used_pecr = ( used as f64 / total_space as f64 ) * 100.0;
+        let available = disk.available_space() / 1073741824;
+        
+        let (f_ffree, f_favail, f_files) = match nix::sys::statvfs::statvfs(disk.mount_point()) {
+            Ok(s) => ( s.files_free(), s.files_available(), s.files() ),
+            Err(_) => {( 0, 0, 0 )},
+        };
+    
+        let f_ffree_perc = if f_files == 0 {
+            0.0
+        } else {
+            f_ffree as f64 / f_files as f64 * 100.0
+        };
+        let f_favail_perc = if f_files == 0 {
+            0.0
+        } else {
+            f_favail as f64 / f_files as f64 * 100.0
+        };
+
+
+        let disk_str = format!("
+        Disk name:          {:?}   
+        Disk kind:          {}   
+        Used storage:       {} / {} GB ( {:.2} % )
+        Available space:    {} GB
+        Inode free:         {} / {} ( {:.2} % )
+        Inode available:    {} / {} ( {:.2} % ) \n",
+         disk.name(), 
+         disk.kind(), 
+         used, total_space, used_pecr,
+         available,
+         f_ffree, f_files, f_ffree_perc, 
+         f_favail, f_files, f_favail_perc,
+        );
+        disks_info.push_str(&disk_str);
+    }
+    disks_info
 }

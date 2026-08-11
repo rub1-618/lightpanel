@@ -23,6 +23,8 @@ enum Commands {
     Init    { #[arg(long)] default: bool },
     Remove  { #[arg(long)] force: bool },
     Stats,
+    ShortStats,
+    DiskStats,
 }
 
 fn main() {
@@ -34,7 +36,6 @@ fn main() {
     } // works because inside the func it process::exits with code (1)
 
     match args.command {
-        Commands::Stats => println!("{}", stats::current_machine_stats()),
         Commands::Init { default } => {
             match lpnl_init::init_lpnl(default) {
                 Ok(_) => (),
@@ -46,6 +47,9 @@ fn main() {
                 Ok(_) => (),
                 Err(e) => {report_error(e);}
             }
-        }
+        },
+        Commands::Stats => println!("{}------------------------------------------\n\n    {}", stats::short_stats(), stats::disk_stats()),
+        Commands::ShortStats => println!("{}", stats::short_stats()),
+        Commands::DiskStats => println!("{}", stats::disk_stats()),
     }
 }
