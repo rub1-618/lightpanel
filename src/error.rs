@@ -1,9 +1,11 @@
 #[derive(Debug, Clone)]
 pub enum LpnlError {
-    SetupError   { message: String, kind: SetupErrorKind },
-    DirInitError { message: String, kind: DirInitErrorKind },
-    InitError    { message: String, kind: InitErrorKind },
-    RemoveError  { message: String, kind: RemoveErrorKind },
+    SetupError      { message: String, kind: SetupErrorKind },
+    DirInitError    { message: String, kind: DirInitErrorKind },
+    InitError       { message: String, kind: InitErrorKind },
+    RemoveError     { message: String, kind: RemoveErrorKind },
+    ListError       { message: String, kind: ListErrorKind },
+    // No error for stats (yet).
 }
 
 pub fn report_error(error: LpnlError) {
@@ -23,6 +25,10 @@ pub fn report_error(error: LpnlError) {
         LpnlError::RemoveError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(4);
+        },
+        LpnlError::ListError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(5);
         },
     }    
 }
@@ -68,3 +74,14 @@ pub enum RemoveErrorKind {
     #[allow(dead_code)]
     InvalidDomain,
 }
+
+#[derive(Debug, Clone)]
+pub enum ListErrorKind {
+    FsFailure,
+    IoFailure,
+    InvalidCmdResult,
+
+    #[allow(dead_code)]
+    InvalidDomain,
+}
+
