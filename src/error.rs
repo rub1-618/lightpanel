@@ -1,5 +1,6 @@
 #[derive(Debug, Clone)]
 pub enum LpnlError {
+    SetupError   { message: String, kind: SetupErrorKind },
     DirInitError { message: String, kind: DirInitErrorKind },
     InitError    { message: String, kind: InitErrorKind },
     RemoveError  { message: String, kind: RemoveErrorKind },
@@ -7,19 +8,32 @@ pub enum LpnlError {
 
 pub fn report_error(error: LpnlError) {
     match error {
-        LpnlError::DirInitError { message, kind } => {
+        LpnlError::SetupError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(1);
-        },
-        LpnlError::InitError { message, kind } => {
+        }
+        LpnlError::DirInitError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(2);
         },
-        LpnlError::RemoveError { message, kind } => {
+        LpnlError::InitError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(3);
         },
+        LpnlError::RemoveError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(4);
+        },
     }    
+}
+
+#[derive(Debug, Clone)]
+pub enum SetupErrorKind {
+    FsFailure,
+    InvalidCmdResult,
+    ReadError,
+    NotFound,
+    ConvertionFailure,
 }
 
 #[derive(Debug, Clone)]

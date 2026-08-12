@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 use crate::error::{report_error};
 
+mod setup;
 mod constants;
 mod dir_init;
 mod error;
@@ -21,6 +22,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Commands {
+    Setup,
     Init    { #[arg(long)] default: bool },
     Remove  { #[arg(long)] force: bool },
     Stats,
@@ -37,6 +39,16 @@ fn main() {
     } // works because inside the func it process::exits with code (1)
 
     match args.command {
+        Commands::Setup => {
+            match dir_init::ensure_lpnl_directories() {
+                Ok(_) => {},
+                Err(e) => report_error(e), 
+            }
+            match setup::nginx_setup() {
+                Ok(_) => (),
+                Err(e) => {report_error(e);}
+            }
+        }
         Commands::Init { default } => {
             match lpnl_init::init_lpnl(default) {
                 Ok(_) => (),
