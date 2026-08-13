@@ -4,6 +4,7 @@ pub enum LpnlError {
     DirInitError    { message: String, kind: DirInitErrorKind },
     ValidationError { message: String, kind: ValidationErrorKind },
     CommandError    { message: String, kind: CommandErrorKind },
+    BackupError     { message: String, kind: BackupErrorKind },
     InitError       { message: String, kind: InitErrorKind },
     RemoveError     { message: String, kind: RemoveErrorKind },
     ListError       { message: String, kind: ListErrorKind },
@@ -29,21 +30,25 @@ pub fn report_error(error: LpnlError) {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(4);
         },
-        LpnlError::InitError { message, kind } => {
+        LpnlError::BackupError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(5);
         },
-        LpnlError::RemoveError { message, kind } => {
+        LpnlError::InitError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(6);
         },
-        LpnlError::ListError { message, kind } => {
+        LpnlError::RemoveError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(7);
         },
-        LpnlError::AddError { message, kind } => {
+        LpnlError::ListError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(8);
+        },
+        LpnlError::AddError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(9);
         },
     }    
 }
@@ -115,6 +120,10 @@ pub enum ValidationErrorKind {
 #[derive(Debug, Clone)]
 pub enum CommandErrorKind {
     InvalidCmdResult,
-    WriteError,
+}
+
+#[derive(Debug, Clone)]
+pub enum BackupErrorKind {
+    FsFailure,
     NotFound,
 }

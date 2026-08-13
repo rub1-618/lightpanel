@@ -12,6 +12,7 @@ mod lpnl_stats;
 mod lpnl_init;
 mod lpnl_remove;
 mod lpnl_add;
+mod lpnl_backup;
 
 #[derive(Parser)]
 #[command(version, name = "lpnl")]
@@ -26,8 +27,12 @@ struct Args {
 #[derive(Subcommand)]
 enum Commands {
     Setup,
-    Init    { #[arg(long)] default: bool },
-    Remove  { #[arg(long)] force: bool },
+
+    SetBackup   { domain: Option<String> },
+    GetBackup   { domain: Option<String> },
+
+    Init        { #[arg(long)] default: bool },
+    Remove      { #[arg(long)] force: bool },
 
     List,
     ListEnabled,
@@ -63,6 +68,20 @@ fn main() {
                 Err(e) =>error:: report_error(e)
             }
         }
+
+        Commands::SetBackup { domain } => {
+            match lpnl_backup::set_backup(domain) {
+                Ok(_) => (),
+                Err(e) =>error:: report_error(e)
+            }
+        },
+        Commands::GetBackup { domain } => {
+            match lpnl_backup::get_backup(domain) {
+                Ok(_) => (),
+                Err(e) =>error:: report_error(e)
+            }
+        },
+
         Commands::Init { default } => {
             match lpnl_init::init_lpnl(default) {
                 Ok(_) => (),
@@ -76,7 +95,7 @@ fn main() {
             }
         },
 
-        // Commands::AddLocation   => lpnl_add::add(),
+        
 
         Commands::List          => {
             let enabled = match lpnl_list::list_enabled() {

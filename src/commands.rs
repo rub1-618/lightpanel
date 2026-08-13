@@ -1,7 +1,5 @@
-use crate::constants::LPNL_BACKUP_DIR;
 use crate::error::{LpnlError, CommandErrorKind};
-use std::fs;
-use std::{ process::Command, path::PathBuf };
+use std::{ process::Command};
 
 pub fn proceed_nginx() -> Result<(), LpnlError> {
     let mut test_cmd = Command::new("nginx");
@@ -52,9 +50,9 @@ pub fn proceed_cmd(command: &mut Command, first_message: String, second_emessage
     }
 }
 
-pub fn proceed_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
+pub fn proceed_check_nginx() -> Result<(), LpnlError> {
     let mut test_cmd = Command::new("nginx");
-    test_cmd.args(["-t", "-c", path]);
+    test_cmd.arg("-t");
     match proceed_cmd(
         &mut test_cmd, 
         "Config file tested succesfully.".to_string(), 
@@ -66,20 +64,16 @@ pub fn proceed_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
     }
 }
 
-pub fn proceed_backup(domain: &str, contains: &str) -> Result<(), LpnlError> {
-    let dir_str = format!("{LPNL_BACKUP_DIR}/{domain}/{domain}.txt");
-    let dir = PathBuf::from(&dir_str);
-    if !dir.exists() {
-        return Err(LpnlError::CommandError { 
-            message: format!("Unable to find '{domain}' backup file. Suggest using setup or init."),
-            kind: CommandErrorKind::NotFound
-        }) 
-    }
-    match fs::write(dir_str, contains) {
-        Ok(_) => Ok(println!("File backup successful.")),
-        Err(e) => return Err(LpnlError::CommandError { 
-            message: format!("Unable to backup file: {e}"),
-            kind: CommandErrorKind::WriteError
-        }) 
+pub fn proceed_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
+    let mut test_cmd = Command::new("nginx");
+    test_cmd.args(["-t", "-c", path]);
+    match proceed_cmd(
+        &mut test_cmd, 
+        "Config file tested succesfully.".to_string(), 
+        "Config file testing".to_string(),
+        "Unable to test the config file.".to_string()
+    ) {
+        Ok(_) => Ok(()),
+        Err(e) => return Err(e)
     }
 }

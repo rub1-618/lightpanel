@@ -1,7 +1,7 @@
 use crate::constants::{NGINX_SITES_ENABLED_DIR, LPNL_TMP_DIR};
 use crate::error::{LpnlError, AddErrorKind};
 use crate::validation::{get_domain, get_location, get_proxy, get_root};
-use crate::commands::{proceed_backup, proceed_nginx, proceed_nginx_with_dir};
+use crate::commands::{proceed_nginx, proceed_nginx_with_dir};
 use std::{io, fs, path::PathBuf};
 
 pub fn add_loc(
@@ -100,8 +100,6 @@ fn add_root_loc(domain: String, location: String, root: String) -> Result<(), Lp
                                 match fs::write(&sites_enabled_conf_str, &final_conf) {
                                     Ok(_) => {
                                         proceed_nginx()?;
-                                        proceed_backup(&domain, &final_conf)?;
-                                        
                                     }
                                     Err(e) => return Err(LpnlError::AddError { 
                                         message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
@@ -186,8 +184,6 @@ fn add_proxy_loc(domain: String, location: String, proxy: String) -> Result<(), 
                                 match fs::write(&sites_enabled_conf_str, &final_conf) {
                                     Ok(_) => {
                                         proceed_nginx()?;
-                                        proceed_backup(&domain, &final_conf)?;
-                                        
                                     }
                                     Err(e) => return Err(LpnlError::AddError { 
                                         message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
