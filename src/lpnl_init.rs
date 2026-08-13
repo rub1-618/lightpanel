@@ -188,37 +188,35 @@ fn get_root_dir(domain: String) -> Result<String, LpnlError> {
 fn generate_config(domain: String, port: u16, root: String, is_for_test: bool) -> String {
     let config = if !is_for_test {
         format!("
-            server {{ 
-                listen {port};
-                server_name {domain};
-                add_header X-Server: \"global\";
-                add_header X-Security: \"strict\";
+server {{ 
+    listen {port};
+    server_name {domain};
+    add_header X-Server: \"global\";
+    add_header X-Security: \"strict\";
             
-                location / {{
-                    root {root};
-                }}
-            }}
-        ")
+    location / {{
+        root {root};
+    }}
+}}")
     } else {
         format!("
-            events {{  }}
+events {{  }}
 
-            http {{
+http {{
 
-                server {{ 
-                    listen {port};
-                    server_name {domain};
+    server {{ 
+        listen {port};
+        server_name {domain};
 
-                    add_header X-Server: \"global\";
-                    add_header X-Security: \"strict\";
+        add_header X-Server: \"global\";
+        add_header X-Security: \"strict\";
 
-                    location / {{
-                        root {root};
-                    }}
-                }}
+        location / {{
+            root {root};
+        }}
+    }}
 
-            }}
-        ")
+}}")
     };
     config
 }

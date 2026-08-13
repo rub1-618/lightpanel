@@ -2,9 +2,12 @@
 pub enum LpnlError {
     SetupError      { message: String, kind: SetupErrorKind },
     DirInitError    { message: String, kind: DirInitErrorKind },
+    ValidationError { message: String, kind: ValidationErrorKind },
+    CommandError    { message: String, kind: CommandErrorKind },
     InitError       { message: String, kind: InitErrorKind },
     RemoveError     { message: String, kind: RemoveErrorKind },
     ListError       { message: String, kind: ListErrorKind },
+    AddError        { message: String, kind: AddErrorKind },
     // No error for stats (yet).
 }
 
@@ -18,17 +21,29 @@ pub fn report_error(error: LpnlError) {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(2);
         },
-        LpnlError::InitError { message, kind } => {
+        LpnlError::ValidationError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(3);
         },
-        LpnlError::RemoveError { message, kind } => {
+        LpnlError::CommandError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(4);
         },
-        LpnlError::ListError { message, kind } => {
+        LpnlError::InitError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(5);
+        },
+        LpnlError::RemoveError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(6);
+        },
+        LpnlError::ListError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(7);
+        },
+        LpnlError::AddError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(8);
         },
     }    
 }
@@ -36,7 +51,6 @@ pub fn report_error(error: LpnlError) {
 #[derive(Debug, Clone)]
 pub enum SetupErrorKind {
     FsFailure,
-    InvalidCmdResult,
     ReadError,
     NotFound,
     ConvertionFailure,
@@ -78,10 +92,29 @@ pub enum RemoveErrorKind {
 #[derive(Debug, Clone)]
 pub enum ListErrorKind {
     FsFailure,
-    IoFailure,
-    InvalidCmdResult,
-
-    #[allow(dead_code)]
-    InvalidDomain,
 }
 
+#[derive(Debug, Clone)]
+pub enum AddErrorKind {
+    FsFailure,
+    IoFailure,
+    InvalidInput,
+    NotFound,
+    AlreadyExists,
+}
+
+#[derive(Debug, Clone)]
+pub enum ValidationErrorKind {
+    IoFailure,
+    InvalidDomain,
+    InvalidRoot,
+    InvalidProxy,
+    InvalidLocation,
+}
+
+#[derive(Debug, Clone)]
+pub enum CommandErrorKind {
+    InvalidCmdResult,
+    WriteError,
+    NotFound,
+}
