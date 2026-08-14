@@ -1,14 +1,15 @@
 #[derive(Debug, Clone)]
 pub enum LpnlError {
-    SetupError      { message: String, kind: SetupErrorKind },
-    DirInitError    { message: String, kind: DirInitErrorKind },
-    ValidationError { message: String, kind: ValidationErrorKind },
-    CommandError    { message: String, kind: CommandErrorKind },
-    BackupError     { message: String, kind: BackupErrorKind },
-    InitError       { message: String, kind: InitErrorKind },
-    RemoveError     { message: String, kind: RemoveErrorKind },
-    ListError       { message: String, kind: ListErrorKind },
-    AddError        { message: String, kind: AddErrorKind },
+    SetupError      { message: String, kind: SetupErrorKind         },
+    DirInitError    { message: String, kind: DirInitErrorKind       },
+    ValidationError { message: String, kind: ValidationErrorKind    },
+    CommandError    { message: String, kind: CommandErrorKind       },
+    BackupError     { message: String, kind: BackupErrorKind        },
+    InitError       { message: String, kind: InitErrorKind          },
+    RemoveError     { message: String, kind: RemoveErrorKind        },
+    ListError       { message: String, kind: ListErrorKind          },
+    AddLocError     { message: String, kind: AddLocErrorKind        },
+    RemoveLocError  { message: String, kind: RemoveLocErrorKind     },
     // No error for stats (yet).
 }
 
@@ -46,7 +47,11 @@ pub fn report_error(error: LpnlError) {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(8);
         },
-        LpnlError::AddError { message, kind } => {
+        LpnlError::AddLocError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(9);
+        },
+        LpnlError::RemoveLocError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(9);
         },
@@ -69,11 +74,29 @@ pub enum DirInitErrorKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum InitErrorKind {
-    AlreadyExists,
-    FsFailure,
+pub enum ValidationErrorKind {
     IoFailure,
-    ConvertionFailure,
+    InvalidDomain,
+    InvalidRoot,
+    InvalidPort,
+    InvalidProxy,
+    InvalidLocation,
+}
+
+#[derive(Debug, Clone)]
+pub enum CommandErrorKind {
+    InvalidCmdResult,
+}
+
+#[derive(Debug, Clone)]
+pub enum BackupErrorKind {
+    FsFailure,
+    NotFound,
+}
+
+#[derive(Debug, Clone)]
+pub enum InitErrorKind {
+    FsFailure,
     InvalidCmdResult,
 
     #[allow(dead_code)]
@@ -87,9 +110,6 @@ pub enum InitErrorKind {
 #[derive(Debug, Clone)]
 pub enum RemoveErrorKind {
     FsFailure,
-    IoFailure,
-    InvalidCmdResult,
-
     #[allow(dead_code)]
     InvalidDomain,
 }
@@ -100,7 +120,7 @@ pub enum ListErrorKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum AddErrorKind {
+pub enum AddLocErrorKind {
     FsFailure,
     IoFailure,
     InvalidInput,
@@ -109,21 +129,7 @@ pub enum AddErrorKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum ValidationErrorKind {
-    IoFailure,
-    InvalidDomain,
-    InvalidRoot,
-    InvalidProxy,
-    InvalidLocation,
-}
-
-#[derive(Debug, Clone)]
-pub enum CommandErrorKind {
-    InvalidCmdResult,
-}
-
-#[derive(Debug, Clone)]
-pub enum BackupErrorKind {
+pub enum RemoveLocErrorKind {
     FsFailure,
     NotFound,
 }

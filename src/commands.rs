@@ -64,7 +64,7 @@ pub fn proceed_check_nginx() -> Result<(), LpnlError> {
     }
 }
 
-pub fn proceed_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
+pub fn proceed_check_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
     let mut test_cmd = Command::new("nginx");
     test_cmd.args(["-t", "-c", path]);
     match proceed_cmd(

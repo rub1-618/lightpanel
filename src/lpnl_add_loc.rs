@@ -1,7 +1,7 @@
 use crate::constants::{NGINX_SITES_ENABLED_DIR, LPNL_TMP_DIR};
-use crate::error::{LpnlError, AddErrorKind};
+use crate::error::{LpnlError, AddLocErrorKind};
 use crate::validation::{get_domain, get_location, get_proxy, get_root};
-use crate::commands::{proceed_nginx, proceed_nginx_with_dir};
+use crate::commands::{proceed_nginx, proceed_check_nginx_with_dir};
 use std::{io, fs, path::PathBuf};
 
 pub fn add_loc(
@@ -10,9 +10,9 @@ pub fn add_loc(
 ) -> Result<(), LpnlError> {
 
     if nproxy.is_some() && nroot.is_some() {
-        return Err(LpnlError::AddError { 
+        return Err(LpnlError::AddLocError { 
             message: "You can use only 1 flag at a time.".to_string(),
-            kind: AddErrorKind::InvalidInput
+            kind: AddLocErrorKind::InvalidInput
         })
     }
 
@@ -21,18 +21,18 @@ pub fn add_loc(
 
     let sites_enabled_dir = PathBuf::from(NGINX_SITES_ENABLED_DIR);
     if !sites_enabled_dir.exists() {
-        return Err(LpnlError::AddError { 
+        return Err(LpnlError::AddLocError { 
             message: format!("Unable to find a config files' folder in '{NGINX_SITES_ENABLED_DIR}'. Consider using the setup command."),
-            kind: AddErrorKind::FsFailure
+            kind: AddLocErrorKind::FsFailure
         })
     }
 
     let sites_enabled_conf_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
     let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str);
     if !sites_enabled_conf_dir.exists() {
-        return Err(LpnlError::AddError { 
+        return Err(LpnlError::AddLocError { 
             message: format!("Unable to find a config file folder in '{NGINX_SITES_ENABLED_DIR}'. Consider using the setup command."),
-            kind: AddErrorKind::NotFound
+            kind: AddLocErrorKind::NotFound
         })
     }
 
@@ -56,9 +56,9 @@ pub fn add_loc(
         return add_proxy_loc(domain, location, proxy);
     };
 
-    Err(LpnlError::AddError { 
+    Err(LpnlError::AddLocError { 
         message: "Root / proxy selection stage went wrong.".to_string(),
-        kind: AddErrorKind::NotFound
+        kind: AddLocErrorKind::NotFound
     })
 }
 
@@ -70,9 +70,9 @@ fn add_root_loc(domain: String, location: String, root: String) -> Result<(), Lp
     let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str.clone());
     let sites_enabled_conf_as_str = match fs::read_to_string(&sites_enabled_conf_dir) {
         Ok(s) => s,
-        Err(e) => return Err(LpnlError::AddError { 
+        Err(e) => return Err(LpnlError::AddLocError { 
             message: format!("Unable to read the '{sites_enabled_conf_str}' to get the config: {e}"),
-            kind: AddErrorKind::FsFailure
+            kind: AddLocErrorKind::FsFailure
         })
     };
 
@@ -88,52 +88,52 @@ fn add_root_loc(domain: String, location: String, root: String) -> Result<(), Lp
                 let test_conf = format!("events {{  }} http {{ {final_conf} }}");
                 match fs::write(&test_file, &test_conf) {
                     Ok(_) => {
-                        match proceed_nginx_with_dir(&test_file) {
+                        match proceed_check_nginx_with_dir(&test_file) {
                             Ok(_) => {
                                 match fs::remove_file(test_file) {
                                     Ok(_) => {},
-                                    Err(e) => return Err(LpnlError::AddError { 
+                                    Err(e) => return Err(LpnlError::AddLocError { 
                                         message: format!("Unable to remove the testing file: {e}."),
-                                        kind: AddErrorKind::FsFailure
+                                        kind: AddLocErrorKind::FsFailure
                                     })
                                 }
                                 match fs::write(&sites_enabled_conf_str, &final_conf) {
                                     Ok(_) => {
                                         proceed_nginx()?;
                                     }
-                                    Err(e) => return Err(LpnlError::AddError { 
+                                    Err(e) => return Err(LpnlError::AddLocError { 
                                         message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
-                                        kind: AddErrorKind::FsFailure
+                                        kind: AddLocErrorKind::FsFailure
                                     })
                                 }
                             }
                             Err(e) => {
                                 match fs::remove_file(test_file) {
                                     Ok(_) => {},
-                                    Err(e) => return Err(LpnlError::AddError { 
+                                    Err(e) => return Err(LpnlError::AddLocError { 
                                         message: format!("Unable to remove the testing file: {e}."),
-                                        kind: AddErrorKind::FsFailure
+                                        kind: AddLocErrorKind::FsFailure
                                     })
                                 }
                                 return Err(e)
                             }
                         }
                     }
-                    Err(e) => return Err(LpnlError::AddError { 
+                    Err(e) => return Err(LpnlError::AddLocError { 
                         message: format!("Unable to update the config in '{test_file}': {e}"),
-                        kind: AddErrorKind::FsFailure
+                        kind: AddLocErrorKind::FsFailure
                     })
                 }
             }
-            None => return Err(LpnlError::AddError { 
+            None => return Err(LpnlError::AddLocError { 
                 message: format!("Unable to find the 'location /' block in '{sites_enabled_conf_str}'."),
-                kind: AddErrorKind::NotFound
+                kind: AddLocErrorKind::NotFound
             })
         }
     } else {
-        return Err(LpnlError::AddError { 
+        return Err(LpnlError::AddLocError { 
             message: format!("The config location '{location}' already exists."),
-            kind: AddErrorKind::AlreadyExists
+            kind: AddLocErrorKind::AlreadyExists
         })
     }
 
@@ -149,9 +149,9 @@ fn add_proxy_loc(domain: String, location: String, proxy: String) -> Result<(), 
     let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str.clone());
     let sites_enabled_conf_as_str = match fs::read_to_string(&sites_enabled_conf_dir) {
         Ok(s) => s,
-        Err(e) => return Err(LpnlError::AddError { 
+        Err(e) => return Err(LpnlError::AddLocError { 
             message: format!("Unable to read the '{sites_enabled_conf_str}' to get the config: {e}"),
-            kind: AddErrorKind::FsFailure
+            kind: AddLocErrorKind::FsFailure
         })
     };
 
@@ -172,52 +172,52 @@ fn add_proxy_loc(domain: String, location: String, proxy: String) -> Result<(), 
                 let test_conf = format!("events {{  }} http {{ {final_conf} }}");
                 match fs::write(&test_file, &test_conf) {
                     Ok(_) => {
-                        match proceed_nginx_with_dir(&test_file) {
+                        match proceed_check_nginx_with_dir(&test_file) {
                             Ok(_) => {
                                 match fs::remove_file(test_file) {
                                     Ok(_) => {},
-                                    Err(e) => return Err(LpnlError::AddError { 
+                                    Err(e) => return Err(LpnlError::AddLocError { 
                                         message: format!("Unable to remove the testing file: {e}."),
-                                        kind: AddErrorKind::FsFailure
+                                        kind: AddLocErrorKind::FsFailure
                                     })
                                 }
                                 match fs::write(&sites_enabled_conf_str, &final_conf) {
                                     Ok(_) => {
                                         proceed_nginx()?;
                                     }
-                                    Err(e) => return Err(LpnlError::AddError { 
+                                    Err(e) => return Err(LpnlError::AddLocError { 
                                         message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
-                                        kind: AddErrorKind::FsFailure
+                                        kind: AddLocErrorKind::FsFailure
                                     })
                                 }
                             }
                             Err(e) => {
                                 match fs::remove_file(test_file) {
                                     Ok(_) => {},
-                                    Err(e) => return Err(LpnlError::AddError { 
+                                    Err(e) => return Err(LpnlError::AddLocError { 
                                         message: format!("Unable to remove the testing file: {e}."),
-                                        kind: AddErrorKind::FsFailure
+                                        kind: AddLocErrorKind::FsFailure
                                     })
                                 }
                                 return Err(e)
                             }
                         }
                     }
-                    Err(e) => return Err(LpnlError::AddError { 
-                        message: format!("Unable to update the config in '{test_file}': {e}"),
-                        kind: AddErrorKind::FsFailure
+                    Err(e) => return Err(LpnlError::AddLocError { 
+                        message: format!("Unable to check the config in '{test_file}': {e}"),
+                        kind: AddLocErrorKind::FsFailure
                     })
                 }
             }
-            None => return Err(LpnlError::AddError { 
+            None => return Err(LpnlError::AddLocError { 
                 message: format!("Unable to find the 'location /' block in '{sites_enabled_conf_str}'."),
-                kind: AddErrorKind::NotFound
+                kind: AddLocErrorKind::NotFound
             })
         }
     } else {
-        return Err(LpnlError::AddError { 
+        return Err(LpnlError::AddLocError { 
             message: format!("The config location '{location}' already exists."),
-            kind: AddErrorKind::AlreadyExists
+            kind: AddLocErrorKind::AlreadyExists
         })
     }
 
@@ -230,9 +230,9 @@ fn is_proxy_mode() -> Result<bool, LpnlError> {
         println!("Select mode (proxy/root): ");
         match io::stdin().read_line(&mut input) {
             Ok (_) => {},
-            Err(e) => return Err(LpnlError::AddError { 
+            Err(e) => return Err(LpnlError::AddLocError { 
                 message: format!("Unable to get the location: {e}"), 
-                kind: AddErrorKind::IoFailure
+                kind: AddLocErrorKind::IoFailure
             })
         }
         print!("\n");

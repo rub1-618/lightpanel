@@ -11,7 +11,8 @@ mod lpnl_list;
 mod lpnl_stats;
 mod lpnl_init;
 mod lpnl_remove;
-mod lpnl_add;
+mod lpnl_add_loc;
+mod lpnl_remove_loc;
 mod lpnl_backup;
 
 #[derive(Parser)]
@@ -31,8 +32,18 @@ enum Commands {
     SetBackup   { domain: Option<String> },
     GetBackup   { domain: Option<String> },
 
-    Init        { #[arg(long)] default: bool },
-    Remove      { #[arg(long)] force: bool },
+    Init        { 
+        domain: Option<String>, 
+        #[arg(long)]
+        root: Option<PathBuf>,
+        #[arg(long)]
+        port: Option<u16>,
+        #[arg(long)] default: bool 
+    },
+    Remove      {
+        domain: Option<String>,
+        #[arg(long)] force: bool 
+    },
 
     List,
     ListEnabled,
@@ -46,6 +57,12 @@ enum Commands {
         root: Option<PathBuf>,
         #[arg(long)]
         proxy: Option<String>,
+    },
+
+    RemoveLoc  {
+        domain: Option<String>,
+        #[arg(long)]
+        location: Option<String>,
     },
 
     Stats,
@@ -82,14 +99,14 @@ fn main() {
             }
         },
 
-        Commands::Init { default } => {
-            match lpnl_init::init_lpnl(default) {
+        Commands::Init { domain, root, port, default } => {
+            match lpnl_init::init_lpnl(domain, root, port, default) {
                 Ok(_) => (),
                 Err(e) => error::report_error(e)
             }
         },
-        Commands::Remove { force } => {
-            match lpnl_remove::remove_lpnl(force) {
+        Commands::Remove { domain, force } => {
+            match lpnl_remove::remove_lpnl(domain, force) {
                 Ok(_) => (),
                 Err(e) => error::report_error(e)
             }
@@ -124,11 +141,18 @@ fn main() {
         },
 
         Commands::AddLoc { domain, location, root, proxy } => {
-            match lpnl_add::add_loc( domain, location, root, proxy) {
+            match lpnl_add_loc::add_loc( domain, location, root, proxy) {
                 Ok(a) => a,
                 Err(e) => return error::report_error(e),
             }
-        }
+        },
+
+        Commands::RemoveLoc { domain, location } => {
+            match lpnl_remove_loc::remove_loc( domain, location) {
+                Ok(a) => a,
+                Err(e) => return error::report_error(e),
+            }
+        },
 
         Commands::Stats         => println!("{}------------------------------------------\n\n    {}", 
                                     lpnl_stats::short_stats(), lpnl_stats::disk_stats()),

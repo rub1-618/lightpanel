@@ -1,29 +1,18 @@
 use crate::constants::{LPNL_BACKUP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
 use crate::error::{LpnlError, RemoveErrorKind};
-use std::{fs, io, path::PathBuf, process::Command};
+use crate::validation::get_domain;
+use crate::commands::proceed_nginx;
+use std::{fs, path::PathBuf};
 
-pub fn remove_lpnl(is_forced: bool) -> Result<(), LpnlError> {
-    let domain = match get_domain() {
-        Ok(d) => d,
-        Err(e) => return Err(e)
-    };
+pub fn remove_lpnl(domain: Option<String>, is_forced: bool) -> Result<(), LpnlError> {
+    
+    let domain = get_domain(domain)?;
 
-    match remove_ngnix(domain.clone()) {
-        Ok(_) => {},
-        Err(e) => return Err(e)
-    }
+    remove_ngnix(domain.clone())?;
 
     if is_forced {
-        match remove_backup_configs(domain.clone()) {
-            Ok(_) => {},
-            Err(e) => return Err(e)
-        }
-
-        match remove_www_files(domain.clone()) {
-            Ok(_) => {},
-            Err(e) => return Err(e)
-        }
-
+        remove_backup_configs(domain.clone())?;
+        remove_www_files(domain.clone())?;
         return Ok(println!("Forced config removing done!"));
     }
 
@@ -31,11 +20,11 @@ pub fn remove_lpnl(is_forced: bool) -> Result<(), LpnlError> {
 }
 
 fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
-    let mut nginx_config_file = PathBuf::from(NGINX_SITES_ENABLED_DIR);
+    let mut nginx_conf_file = PathBuf::from(NGINX_SITES_ENABLED_DIR);
     let conf_name = format!("{domain}.conf");
-    nginx_config_file.push(conf_name);
+    nginx_conf_file.push(conf_name);
     
-    match nginx_config_file.exists() {
+    match nginx_conf_file.exists() {
         true => println!("Config file in '/etc/nginx/sites-enabled' found. Deleting it..."),
         false => {
             println!("No '{domain}' config file in '/etc/nginx/sites-enabled' found.");
@@ -43,7 +32,7 @@ fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
         }
     }
 
-    match fs::remove_file(nginx_config_file) {
+    match fs::remove_file(nginx_conf_file) {
         Ok(_) => println!("Ngnix config file in '/etc/nginx/sites-enabled' successfully deleted."),
         Err(e) => return Err(LpnlError::RemoveError { 
             message: format!("Unable to delete the config file in '/etc/nginx/sites-enabled': {e}."), 
@@ -51,46 +40,8 @@ fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
         })
     }
 
-    let mut check_cmd = Command::new("nginx");
-    check_cmd.arg("-t");
-    match check_cmd.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("Config files successfully tested.")
-            } else {
-                let status_code = status.code().unwrap_or_default();
-                return Err(LpnlError::RemoveError { 
-                    message: format!("Config files testing failed with status code: {status_code}."),
-                    kind: RemoveErrorKind::InvalidCmdResult
-                })
-            }
-        },
-        Err(e) => return Err(LpnlError::RemoveError { 
-            message: format!("Config files testing processes failed: {e}."),
-            kind: RemoveErrorKind::InvalidCmdResult
-        })
-    }
-
-    let mut reload_cmd = Command::new("nginx");
-    reload_cmd.args(["-s", "reload"]);
-    match reload_cmd.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("Reload successful.")
-            } else {
-                let status_code = status.code().unwrap_or_default();
-                return Err(LpnlError::RemoveError { 
-                    message: format!("Config files reloading failed with status code: {status_code}."),
-                    kind: RemoveErrorKind::InvalidCmdResult
-                })
-            }
-        },
-        Err(e) => return Err(LpnlError::RemoveError { 
-            message: format!("Config files reloading processes failed: {e}."),
-            kind: RemoveErrorKind::InvalidCmdResult
-        })
-    }
-
+    proceed_nginx()?;
+    
     Ok(())
 }
 
@@ -161,28 +112,7 @@ fn remove_www_files(domain: String) -> Result<(), LpnlError> {
     Ok(())
 }
 
-fn get_domain() -> Result<String, LpnlError> {
-    // todo: displaying enabled domains array for removing
-    loop {
-        let mut input = String::new();
-        println!("Domain: ");
-        match io::stdin().read_line(&mut input) {
-            Ok (_) => {},
-            Err(_) => return Err(LpnlError::RemoveError { 
-                message: "Could not get the domain.".to_string() ,
-                kind: RemoveErrorKind::IoFailure
-            })
-        }
-
-        if input.contains("/") || input.contains("..") || input.trim().is_empty() {
-            eprintln!("'/', '..' and empty strings are not allowed.");
-            continue;
-        }
-
-        let domain = input.trim().to_string();
-        return  Ok(domain)
-    }
-}
+// ! tests
 
 #[cfg(test)]
 mod tests {

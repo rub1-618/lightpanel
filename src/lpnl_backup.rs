@@ -1,6 +1,6 @@
 use crate::constants::{LPNL_BACKUP_DIR, NGINX_SITES_ENABLED_DIR, LPNL_TMP_DIR};
 use crate::error::{LpnlError, BackupErrorKind};
-use crate::commands::{proceed_nginx_with_dir, proceed_check_nginx, proceed_nginx};
+use crate::commands::{proceed_check_nginx_with_dir, proceed_check_nginx, proceed_nginx};
 use crate::validation::get_domain;
 use std::{fs, path::PathBuf};
 
@@ -72,7 +72,7 @@ pub fn get_backup(domain: Option<String>) -> Result<(), LpnlError> {
         }) 
     }
 
-    match proceed_nginx_with_dir(&test_file) {
+    match proceed_check_nginx_with_dir(&test_file) {
         Ok(_) => {
             match fs::remove_file(&test_file) {
                 Ok(_) => {},

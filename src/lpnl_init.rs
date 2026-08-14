@@ -1,46 +1,60 @@
-use crate::constants::{DEFAULT_DOMAIN, DEFAULT_PORT, LPNL_BACKUP_DIR, LPNL_MAIN_DIR, LPNL_TMP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
+use crate::constants::{DEFAULT_DOMAIN, DEFAULT_PORT, LPNL_TMP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
 use crate::error::{InitErrorKind, LpnlError};
-use std::{fs, io, path::PathBuf, process::Command};
+use crate::validation::{get_domain, get_root, get_port};
+use crate::lpnl_backup::set_backup;
+use crate::commands::{proceed_nginx, proceed_check_nginx_with_dir};
+use std::{fs, path::PathBuf};
 
-pub fn init_lpnl(is_default: bool) -> Result<(), LpnlError> {
+pub fn init_lpnl(domain: Option<String>, root: Option<PathBuf>, port: Option<u16>, is_default: bool) -> Result<(), LpnlError> {
     // * domain recieving
-    let domain = if !is_default {
-        match get_domain() {
-            Ok(s) => s,
-            Err(e) => return Err(e)
+    let domain = match domain {
+        Some(_) => get_domain(domain)?,
+        None => {
+            if is_default {
+                DEFAULT_DOMAIN.to_string()
+            } else {
+                get_domain(domain)?
+            }
         }
-    } else {
-        DEFAULT_DOMAIN.to_string()
     };
 
     // * port recieving
-    let port: u16 = if !is_default {
-        match get_port() {
-            Ok(p) => p,
-            Err(e) => return Err(e)
+    let port = match port {
+        Some(_) => get_port(port)?,
+        None => {
+            if is_default {
+                DEFAULT_PORT
+            } else {
+                get_port(port)?
+            }
         }
-    } else {
-        DEFAULT_PORT
     };
 
     // ! root init and path recieving
-    let root: String = if !is_default {
-        match get_root_dir(domain.clone()) {
-            Ok(p) => p,
-            Err(e) => return Err(e)
-        }
-    } else {
-        match init_root_dir(&domain) {
-            Ok(p) => p,
-            Err(e) => return Err(e),
+    let root = match root {
+        Some(r) => get_root(Some(r))?,
+        None => {
+            if is_default {
+                let mut root_dir = PathBuf::from(WWW_ROOT_DIR);
+                let domain_as_dir = PathBuf::from(&domain);
+                root_dir.push(domain_as_dir);
+                match &root_dir.exists() {
+                    true  => root_dir.to_str().unwrap().to_string(),
+                    false => { 
+                        match fs::create_dir_all(&root_dir) {
+                            Ok(_)  => root_dir.to_str().unwrap().to_string(),
+                            Err(_) => return Err(LpnlError::InitError { 
+                                message: format!("Unable to create '{domain}' root directory."), 
+                                kind: InitErrorKind::FsFailure
+                            })
+                        }
+                    }
+                }
+            } else {
+                get_root(root)?
+            }
         }
     };
-
-    // ! creating the backup itself
-    match init_backup_dir(domain.clone()) {
-        Ok(_) => {},
-        Err(e) => return Err(e),
-    }
     
     let config = generate_config(domain.clone(), port, root.clone(), false);
     let test_config = generate_config(domain.clone(), port, root.clone(), true);
@@ -53,141 +67,9 @@ pub fn init_lpnl(is_default: bool) -> Result<(), LpnlError> {
     Ok(println!("initialization finished successfully!"))
 }
 
-fn init_backup_dir(domain: String) -> Result<(), LpnlError> {
-    let mut backup_dir = PathBuf::from(LPNL_MAIN_DIR);
-    backup_dir.push("backups");
-
-    let domain_dir = PathBuf::from(&domain);
-    let mut current_backup_dir = backup_dir.clone();
-    current_backup_dir.push(&domain_dir);
-    if current_backup_dir.exists() { 
-        return Err(LpnlError::InitError { 
-            message: "This config is already initialized.".to_string(), 
-            kind: InitErrorKind::AlreadyExists
-        })
-    }
-    match fs::create_dir(current_backup_dir) {
-        Ok(_)  => Ok(()),
-        Err(_) => Err(LpnlError::InitError { 
-            message: format!("Unable to create '{domain}' backup directory."), 
-            kind: InitErrorKind::FsFailure
-        })
-    }
-}
-
-// returns String so that root path can be used in main initialization later
-fn init_root_dir(domain: &str) -> Result<String, LpnlError> {
-    let domain = if domain.trim().is_empty() {
-        DEFAULT_DOMAIN
-    } else { domain.trim() };
-    let mut root_dir = PathBuf::from(WWW_ROOT_DIR);
-    let domain_as_dir = PathBuf::from(domain);
-    root_dir.push(domain_as_dir);
-    match &root_dir.exists() {
-        true  => Ok(root_dir.to_str().unwrap().to_string()),
-        false => {
-            match fs::create_dir_all(&root_dir) {
-                Ok(_)  => Ok(root_dir.to_str().unwrap().to_string()),
-                Err(_) => Err(LpnlError::InitError { 
-                    message: "Unable to create root directory.".to_string(), 
-                    kind: InitErrorKind::FsFailure
-                })
-            }
-        }
-    }
-}
-
-fn get_domain() -> Result<String, LpnlError> {
-    loop {
-        let mut input = String::new();
-        println!("Domain (default is 'localhost'): ");
-        match io::stdin().read_line(&mut input) {
-            Ok (_) => {},
-            Err(_) => return Err(LpnlError::InitError { 
-                message: "Could not get the domain.".to_string(), 
-                kind: InitErrorKind::IoFailure
-            })
-        }
-        print!("\n");
-
-        if input.contains("/") || input.contains("..") {
-            eprintln!("'/' and '..' are not allowed.");
-            continue;
-        }
-
-        if input.trim().is_empty() {
-            let domain: String = DEFAULT_DOMAIN.to_string();
-            return Ok(domain);
-        };
-
-        let domain = input.trim().to_string();
-        return Ok(domain)
-    }
-}
-
-fn get_port() -> Result<u16, LpnlError> {
-    loop {
-        let mut input = String::new();
-        println!("Port (default is '8080'): ");
-        match io::stdin().read_line(&mut input) {
-            Ok (_) => {},
-            Err(_) => return Err(LpnlError::InitError { 
-                message: "Could not get the port.".to_string(), 
-                kind: InitErrorKind::IoFailure
-            })
-        }
-        print!("\n");
-
-        if input.trim().is_empty() {
-            let port: u16 = DEFAULT_PORT;
-            return Ok(port);
-        };
-
-        let port: u16 = match input.trim().parse() {
-            Ok(p) => p,
-            Err(_) => {eprintln!("Expected an 'u16' integer value."); continue;}
-        };
-
-        return Ok(port)
-    }
-}
-
-fn get_root_dir(domain: String) -> Result<String, LpnlError> {
-    loop {
-        let mut input = String::new();
-        println!("Server root directory (default is '{WWW_ROOT_DIR}'): ");
-        match io::stdin().read_line(&mut input) {
-            Ok (_) => {},
-            Err(_) => return Err(LpnlError::InitError { 
-                message: "Could not get the root directory.".to_string(), 
-                kind: InitErrorKind::FsFailure
-            })
-        }
-        print!("\n");
-
-        if input.trim().is_empty() {
-            return init_root_dir(&domain)
-        }
-
-        if input.trim().contains("..") {
-            eprintln!("Server root directory should not contain '..'.");
-            continue;
-        }
-
-        let dir = PathBuf::from(input.trim());
-
-        if !dir.exists() {
-            eprintln!("This directory does not exist.");
-            continue;
-        }
-
-        return Ok(dir.to_str().unwrap().to_string())
-    }
-}
-
 fn generate_config(domain: String, port: u16, root: String, is_for_test: bool) -> String {
-    let config = if !is_for_test {
-        format!("
+
+    let root_oriented_conf = format!("
 server {{ 
     listen {port};
     server_name {domain};
@@ -197,227 +79,78 @@ server {{
     location / {{
         root {root};
     }}
-}}")
+}}");
+
+    let test_conf = format!("events {{  }}  http {{ {root_oriented_conf} }}");
+
+    if is_for_test {
+        test_conf
     } else {
-        format!("
-events {{  }}
-
-http {{
-
-    server {{ 
-        listen {port};
-        server_name {domain};
-
-        add_header X-Server: \"global\";
-        add_header X-Security: \"strict\";
-
-        location / {{
-            root {root};
-        }}
-    }}
-
-}}")
-    };
-    config
+        root_oriented_conf
+    }
 }
 
 // ! creating nginx.conf
-fn init_nginx(domain: String, config: String, test_cofing: String, root: String) -> Result<(), LpnlError> {
+fn init_nginx(domain: String, final_conf: String, test_conf: String, root: String) -> Result<(), LpnlError> {
 
     // * testing
-    let mut test_dir = PathBuf::from(LPNL_TMP_DIR);
-    match &test_dir.exists() {
-        true  => {},
-        false => {
-            match fs::create_dir_all(&test_dir) {
-                Ok(_)  => {},
-                Err(_) => return Err(LpnlError::InitError { 
-                    message: "Unable to create testing '/tmp' directory.".to_string(), 
-                    kind: InitErrorKind::FsFailure
+    let test_file = format!("{LPNL_TMP_DIR}/run_test.txt");
+
+    match fs::write(test_file.clone(), &test_conf) {
+        Ok(_) => {}
+        Err(e) => return Err(LpnlError::InitError { 
+            message: format!("Writing a config into an initialization file failed: {e}."),
+            kind: InitErrorKind::FsFailure
+        })
+    }
+    match proceed_check_nginx_with_dir(&test_file) {
+        Ok(_) => {
+            match fs::remove_file(test_file) {
+                Ok(_) => {},
+                Err(e) => return Err(LpnlError::InitError { 
+                    message: format!("Unable to remove the testing file: {e}."),
+                    kind: InitErrorKind::InvalidCmdResult
                 })
             }
         }
-    }
-    test_dir.push("run_test.txt");
-    match fs::write(test_dir.clone(), &test_cofing) {
-        Ok(_) => {}
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Writing a config into an initialization file failed: {e}."),
-            kind: InitErrorKind::FsFailure
-        })
-    }
-    let test_dir_str = match test_dir.to_str() {
-        Some(s) => s,
-        None => return Err(LpnlError::InitError { 
-            message: "Initialization path convertion failed.".to_string(),
-            kind: InitErrorKind::ConvertionFailure
-        })
-    };
-    let mut check_cmd = Command::new("nginx");
-    check_cmd.args(["-t", "-c", &test_dir_str]);
-    match check_cmd.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("Config file successfully checked.")
-            } else {
-                let status_code = status.code().unwrap_or_default();
-                return Err(LpnlError::InitError { 
-                    message: format!("Config file checking failed with status code: {status_code}."),
+        Err(e) => {
+            match fs::remove_file(test_file) {
+                Ok(_) => {},
+                Err(e) => return Err(LpnlError::InitError { 
+                    message: format!("Unable to remove the testing file: {e}."),
                     kind: InitErrorKind::InvalidCmdResult
                 })
             }
-        },
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Config file checking process failed: {e}."),
-            kind: InitErrorKind::InvalidCmdResult
-        })
-    }
-    match fs::remove_file(test_dir) {
-        Ok(_) => {},
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Unable to remove the testing file: {e}."),
-            kind: InitErrorKind::InvalidCmdResult
-        })
-    }
+            return Err(e)
+        }
+    };
 
-    // * creating a backup file in /etc/lpnl/backups
-    let mut backup_dir = PathBuf::from(LPNL_BACKUP_DIR);
-    backup_dir.push(&domain);
-    let backup_file = format!("{domain}.txt");
-    match fs::create_dir_all(&backup_dir) {
-        Ok(_) => {},
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Creating '{domain}' backup folder failed: {e}."),
-            kind: InitErrorKind::FsFailure
-        })
-    }
-    backup_dir.push(backup_file);
-    match fs::write(&backup_dir, &config) {
-        Ok(_) => {}
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Writing a config copy into a '{domain}' backup file failed: {e}."),
-            kind: InitErrorKind::FsFailure
-        })
-    }
+    set_backup(Some(domain.clone()))?;
 
     // * initializing to sites enabled
-    let mut init_dir = PathBuf::from(NGINX_SITES_ENABLED_DIR);
-    let conf_name = format!("{domain}.conf");
-    init_dir.push(conf_name);
-    match fs::write(init_dir.clone(), &config) {
+    let init_dir = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
+    match fs::write(init_dir.clone(), &final_conf) {
         Ok(_) => {}
         Err(e) => return Err(LpnlError::InitError { 
             message: format!("Writing a config into an initialization file failed: {e}."),
             kind: InitErrorKind::FsFailure
         })
     }
-    let mut final_test_cmd = Command::new("nginx");
-    final_test_cmd.arg("-t");
-    match final_test_cmd.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("Config file successfully tested.")
-            } else {
-                let status_code = status.code().unwrap_or_default();
-                return Err(LpnlError::InitError { 
-                    message: format!("Config file final testing failed with status code: {status_code}."),
-                    kind: InitErrorKind::InvalidCmdResult
-                })
-            }
-        },
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Config file final testing process failed: {e}."),
-            kind: InitErrorKind::InvalidCmdResult
-        })
-    }
-    let mut launch_cmd = Command::new("nginx");
-    launch_cmd.args(["-s", "reload"]);
-    match launch_cmd.status() {
-        Ok(status) => {
-            if status.success() {
-                println!("Config file successfully launched.")
-            } else {
-                let status_code = status.code().unwrap_or_default();
-                return Err(LpnlError::InitError { 
-                    message: format!("Config file launching failed with status code: {status_code}."),
-                    kind: InitErrorKind::InvalidCmdResult
-                })
-            }
-        },
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Config file launching process failed: {e}."),
-            kind: InitErrorKind::InvalidCmdResult
-        })
-    }
+    proceed_nginx()?;
 
     Ok(println!("Generated nginx config to: '{root}'."))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::error::ValidationErrorKind;
     use super::*;
-
-    // * domain logic test copy
-    fn check_domain(domain: String) -> Result<String, LpnlError> {
-        if domain.contains("/") || domain.contains("..") {
-            return Err(LpnlError::InitError { 
-                message: "'/', '..' and empty strings are not allowed.".to_string(), 
-                kind: InitErrorKind::InvalidDomain
-            })
-        }
-
-        if domain.trim().is_empty() {
-            let domain: String = DEFAULT_DOMAIN.to_string();
-            return Ok(domain);
-        };
-
-        let domain = domain.trim().to_string();
-        Ok(domain)
-    }
-
-    // * port logic test copy
-    fn check_port(port: String) -> Result<u16, LpnlError>  {
-        if port.trim().is_empty() {
-            let port: u16 = DEFAULT_PORT;
-            return Ok(port);
-        };
-
-        let uport: u16 = match port.trim().parse() {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(LpnlError::InitError{
-                    message: "Expected an 'u16'  integer value.".to_string(),
-                    kind: InitErrorKind::InvalidPort
-                })
-            }
-        };
-
-        return Ok(uport)
-    }
-
-    // * root logic test copy
-    fn check_root(root: String) -> Result<String, LpnlError> {
-    if root.trim().is_empty() {
-            return Ok(WWW_ROOT_DIR.to_string())
-        }
-
-        if root.trim().contains("..") {
-            return Err(LpnlError::InitError {
-                message: "Server root directory should not contain '..'.".to_string(),
-                kind: InitErrorKind::InvalidRoot
-            })
-        }
-
-        let dir = PathBuf::from(root.trim());
-
-        return Ok(dir.to_str().unwrap().to_string())
-    }
 
     // ! domain tests
 
     #[test]
     fn test_init_get_domain_ok() {
-        let domain = check_domain("example.com".to_string());
+        let domain = get_domain(Some("example.com".to_string()));
         match domain {
             Err(_) => panic!("Unexpected Error."),
             Ok(d) => assert_eq!(d, "example.com".to_string())
@@ -426,35 +159,17 @@ mod tests {
 
     #[test]
     fn test_init_get_domain_err() {
-        let domain = check_domain("/..domain".to_string());
+        let domain = get_domain(Some("/..domain".to_string()));
         match domain {
             Err(e) => {
                 match e {
-                    LpnlError::InitError { kind, .. } => {
-                        assert!(matches!(kind, InitErrorKind::InvalidDomain))
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidDomain))
                     }
-                    _ => panic!("Expected InitError.")
+                    _ => panic!("Expected ValidationError.")
                 }
             }
             Ok(_) => panic!("Expected Error.")
-        }
-    }
-
-    #[test]
-    fn test_init_get_domain_spaces_err() {
-        let domain = check_domain("    ".to_string());
-        match domain {
-            Err(_) => panic!("Unexpected Error."),
-            Ok(d) => assert_eq!(d, "localhost")
-        }
-    }
-
-    #[test]
-    fn test_init_default_domain() {
-        let domain = check_domain("".to_string());
-        match domain {
-            Err(_) => panic!("Unexpected Error."),
-            Ok(d) => assert_eq!(d, "localhost")
         }
     }
 
@@ -462,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_init_get_port_ok() {
-        let port = check_port("80".to_string());
+        let port = get_port(Some(80));
         match port {
             Err(_) => panic!("Unexpected Error."),
             Ok(p) => assert_eq!(p, 80)
@@ -471,52 +186,17 @@ mod tests {
 
     #[test]
     fn test_init_get_port_err() {
-        let port = check_port("hello_world".to_string());
+        let port = get_port(Some(0));
         match port {
             Err(e) => {
                 match e {
-                    LpnlError::InitError { kind, .. } => {
-                        assert!(matches!(kind, InitErrorKind::InvalidPort))
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidPort))
                     }
-                    _ => panic!("Expected InitError.")
+                    _ => panic!("Expected ValidationError.")
                 }
             }
             Ok(_) => panic!("Expected Error.")
-        }
-    }
-
-    #[test]
-    fn test_init_get_port_spaces_err() {
-        let port = check_port("    ".to_string());
-        match port {
-            Err(_) => panic!("Unexpected Error."),
-            Ok(s) => assert_eq!(s, 8080)
-        }
-    }
-
-    #[test]
-    fn test_init_get_port_u16() {
-        let port = check_port("80800".to_string());
-        match port {
-            Err(e) => {
-                match e {
-                    LpnlError::InitError { kind, .. } => {
-                        assert!(matches!(kind, InitErrorKind::InvalidPort))
-                    }
-                    _ => panic!("Expected InitError.")
-                }
-            }
-            Ok(_) => panic!("Expected Error.")
-        }
-    }
-
-
-    #[test]
-    fn test_init_default_port() {
-        let port = check_port("".to_string());
-        match port {
-            Err(_) => panic!("Unexpected Error."),
-            Ok(s) => assert_eq!(s, 8080)
         }
     }
 
@@ -524,7 +204,8 @@ mod tests {
 
     #[test]
     fn test_init_get_root_ok() {
-        let root = check_root("/var/www".to_string());
+        let valid_path = PathBuf::from("/var/www");
+        let root = get_root(Some(valid_path));
         match root {
             Err(_) => panic!("Unexpected Error."),
             Ok(d) => assert_eq!(d, "/var/www".to_string())
@@ -533,35 +214,18 @@ mod tests {
 
     #[test]
     fn test_init_get_root_err() {
-        let root = check_root("/../hello".to_string());
+        let invalid_path = PathBuf::from("/../hello");
+        let root = get_root(Some(invalid_path));
         match root {
             Err(e) => {
                 match e {
-                    LpnlError::InitError { kind, .. } => {
-                        assert!(matches!(kind, InitErrorKind::InvalidRoot))
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidRoot))
                     }
-                    _ => panic!("Expected InitError.")
+                    _ => panic!("Expected ValidationError.")
                 }
             }
             Ok(_) => panic!("Expected Error.")
-        }
-    }
-
-    #[test]
-    fn test_init_get_root_spaces_err() {
-        let root = check_root("    ".to_string());
-        match root {
-            Err(_) => panic!("Unexpected Error."),
-            Ok(r) => assert_eq!(r, "/var/www")
-        }
-    }
-
-    #[test]
-    fn test_init_default_root() {
-        let root = check_root("".to_string());
-        match root {
-            Err(_) => panic!("Unexpected Error."),
-            Ok(r) => assert_eq!(r, "/var/www")
         }
     }
 }

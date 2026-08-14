@@ -112,7 +112,19 @@ pub fn get_root(root: Option<PathBuf>) -> Result<String, LpnlError> {
 }
 
 #[allow(dead_code)]
-pub fn get_port() -> Result<u16, LpnlError> {
+pub fn get_port(port: Option<u16>) -> Result<u16, LpnlError> {
+
+    if let Some(p) = port {
+        if port_validates(p.clone()) {
+            return Ok(p)
+        } else {
+            return Err(LpnlError::ValidationError{
+                message: "Port should be an 'u16' integer value and not zero.".to_string(),
+                kind: ValidationErrorKind::InvalidPort
+            })
+        }
+    }
+
     loop {
         let mut input = String::new();
         println!("Port: ");
@@ -127,7 +139,7 @@ pub fn get_port() -> Result<u16, LpnlError> {
 
         let port: u16 = match input.trim().parse() {
             Ok(p) => p,
-            Err(_) => {eprintln!("Expected an 'u16' integer value."); continue;}
+            Err(_) => {eprintln!("Port should be an 'u16' integer value."); continue;}
         };
 
         if !port_validates(port) {
