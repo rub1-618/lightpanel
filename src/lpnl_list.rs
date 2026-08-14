@@ -1,4 +1,4 @@
-use crate::constants::{NGINX_SITES_ENABLED_DIR, LPNL_BACKUP_DIR};
+use crate::constants::{NGINX_SITES_ENABLED_DIR, NGINX_SITES_DISABLED_DIR, LPNL_BACKUP_DIR};
 use crate::error::{LpnlError, ListErrorKind};
 use std::fs;
 use std::path::{PathBuf};
@@ -19,6 +19,22 @@ pub fn list_enabled() -> Result<String, LpnlError> {
         Err(e) => return Err(e)
     };
     Ok(enabled)
+}
+
+pub fn list_disabled() -> Result<String, LpnlError> {
+    if let Err(e) = check_sites_disabled() {
+        return Err(e)
+    }
+
+    let disabled =  match get_list(
+        NGINX_SITES_DISABLED_DIR, 
+        "You have 0 disabled config files.\n", 
+        "disabled config files"
+    ) {
+        Ok(b) => b,
+        Err(e) => return Err(e)
+    };
+    Ok(disabled)
 }
 
 pub fn list_backups() -> Result<String, LpnlError> {
@@ -69,7 +85,18 @@ fn check_sites_enabled() -> Result<(), LpnlError> {
     let sites_enabled_dir = PathBuf::from(NGINX_SITES_ENABLED_DIR);
     if !sites_enabled_dir.exists() {
         return Err(LpnlError::ListError { 
-            message: format!("Unable to find a config files' folder in '{NGINX_SITES_ENABLED_DIR}'. Suggest using setup command."),
+            message: format!("Unable to find an enabled configs files' folder in '{NGINX_SITES_ENABLED_DIR}'. Suggest using setup command."),
+            kind: ListErrorKind::FsFailure
+        })
+    }
+    Ok(())
+}
+
+fn check_sites_disabled() -> Result<(), LpnlError> {
+    let sites_disabled_dir = PathBuf::from(NGINX_SITES_DISABLED_DIR);
+    if !sites_disabled_dir.exists() {
+        return Err(LpnlError::ListError { 
+            message: format!("Unable to find a disabled configs files' folder in '{NGINX_SITES_DISABLED_DIR}'. Suggest using setup command."),
             kind: ListErrorKind::FsFailure
         })
     }

@@ -1,4 +1,4 @@
-use crate::constants::{LPNL_BACKUP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
+use crate::constants::{LPNL_BACKUP_DIR, NGINX_SITES_ENABLED_DIR, NGINX_SITES_DISABLED_DIR, WWW_ROOT_DIR};
 use crate::error::{LpnlError, RemoveErrorKind};
 use crate::validation::get_domain;
 use crate::commands::proceed_nginx;
@@ -20,24 +20,43 @@ pub fn remove_lpnl(domain: Option<String>, is_forced: bool) -> Result<(), LpnlEr
 }
 
 fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
-    let mut nginx_conf_file = PathBuf::from(NGINX_SITES_ENABLED_DIR);
-    let conf_name = format!("{domain}.conf");
-    nginx_conf_file.push(conf_name);
+    let nginx_sites_enabled_dir_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
+    let nginx_sites_disabled_dir_str = format!("{NGINX_SITES_DISABLED_DIR}/{domain}.conf");
+    let enabled_file = PathBuf::from(&nginx_sites_enabled_dir_str);
+    let disabled_file = PathBuf::from(&nginx_sites_disabled_dir_str);
     
-    match nginx_conf_file.exists() {
-        true => println!("Config file in '/etc/nginx/sites-enabled' found. Deleting it..."),
+    match enabled_file.exists() {
+        true => {
+            println!("Config file in '{NGINX_SITES_ENABLED_DIR}' found. Deleting it...");
+            match fs::remove_file(nginx_sites_enabled_dir_str) {
+                Ok(_) => println!("Ngnix config file in '{NGINX_SITES_ENABLED_DIR}' successfully deleted."),
+                Err(e) => return Err(LpnlError::RemoveError { 
+                    message: format!("Unable to delete the config file in '{NGINX_SITES_ENABLED_DIR}': {e}."), 
+                    kind: RemoveErrorKind::FsFailure
+                })
+            }
+        },
         false => {
-            println!("No '{domain}' config file in '/etc/nginx/sites-enabled' found.");
+            println!("No '{domain}' config file in '{NGINX_SITES_ENABLED_DIR}' found.");
             return Ok(())
         }
     }
-
-    match fs::remove_file(nginx_conf_file) {
-        Ok(_) => println!("Ngnix config file in '/etc/nginx/sites-enabled' successfully deleted."),
-        Err(e) => return Err(LpnlError::RemoveError { 
-            message: format!("Unable to delete the config file in '/etc/nginx/sites-enabled': {e}."), 
-            kind: RemoveErrorKind::FsFailure
-        })
+    
+    match disabled_file.exists() {
+        true => {
+            println!("Config file in '{NGINX_SITES_DISABLED_DIR}' found. Deleting it...");
+            match fs::remove_file(nginx_sites_disabled_dir_str) {
+                Ok(_) => println!("Ngnix config file in '{NGINX_SITES_DISABLED_DIR}' successfully deleted."),
+                Err(e) => return Err(LpnlError::RemoveError { 
+                    message: format!("Unable to delete the config file in '{NGINX_SITES_DISABLED_DIR}': {e}."), 
+                    kind: RemoveErrorKind::FsFailure
+                })
+            }
+        },
+        false => {
+            println!("No '{domain}' config file in '{NGINX_SITES_DISABLED_DIR}' found.");
+            return Ok(())
+        }
     }
 
     proceed_nginx()?;

@@ -1,4 +1,9 @@
-use crate::constants::{NGINX_SITES_ENABLED_DIR, OS_RELEASE_DIR, LAST_MAJOR_VER, LAST_MINOR_VER, LAST_PATCH_VER, NGINX_CONFIG};
+use crate::constants::{
+    NGINX_SITES_ENABLED_DIR, OS_RELEASE_DIR, 
+    LAST_MAJOR_VER, LAST_MINOR_VER, 
+    LAST_PATCH_VER, NGINX_CONFIG,
+    NGINX_SITES_DISABLED_DIR
+};
 use crate::error::{LpnlError, SetupErrorKind};
 use crate::commands::{proceed_nginx, proceed_cmd};
 use std::fs::{self, read_to_string};
@@ -84,6 +89,17 @@ fn proceed() -> Result<String, LpnlError> {
             Ok(_) => {}
             Err(e) => return Err(LpnlError::SetupError { 
                 message: format!("Unable to create a config files' folder in '{NGINX_SITES_ENABLED_DIR}': {e}"),
+                kind: SetupErrorKind::FsFailure
+            })
+        }
+    }
+
+    let sites_disabled_dir = PathBuf::from(NGINX_SITES_DISABLED_DIR);
+    if !sites_disabled_dir.exists() {
+        match fs::create_dir_all(sites_disabled_dir) {
+            Ok(_) => {}
+            Err(e) => return Err(LpnlError::SetupError { 
+                message: format!("Unable to create a config files' folder in '{NGINX_SITES_DISABLED_DIR}': {e}"),
                 kind: SetupErrorKind::FsFailure
             })
         }

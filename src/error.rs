@@ -6,6 +6,7 @@ pub enum LpnlError {
     CommandError    { message: String, kind: CommandErrorKind       },
     BackupError     { message: String, kind: BackupErrorKind        },
     InitError       { message: String, kind: InitErrorKind          },
+    StateError      { message: String, kind: StateErrorKind          },
     RemoveError     { message: String, kind: RemoveErrorKind        },
     ListError       { message: String, kind: ListErrorKind          },
     AddLocError     { message: String, kind: AddLocErrorKind        },
@@ -39,21 +40,25 @@ pub fn report_error(error: LpnlError) {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(6);
         },
-        LpnlError::RemoveError { message, kind } => {
+        LpnlError::StateError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(7);
         },
-        LpnlError::ListError { message, kind } => {
+        LpnlError::RemoveError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(8);
         },
-        LpnlError::AddLocError { message, kind } => {
+        LpnlError::ListError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
             std::process::exit(9);
         },
+        LpnlError::AddLocError { message, kind } => {
+            eprintln!("[{kind:?}] {message}");
+            std::process::exit(10);
+        },
         LpnlError::RemoveLocError { message, kind } => {
             eprintln!("[{kind:?}] {message}");
-            std::process::exit(9);
+            std::process::exit(11);
         },
     }    
 }
@@ -98,6 +103,7 @@ pub enum BackupErrorKind {
 pub enum InitErrorKind {
     FsFailure,
     InvalidCmdResult,
+    AlreadyExists,
 
     #[allow(dead_code)]
     InvalidDomain,
@@ -105,6 +111,12 @@ pub enum InitErrorKind {
     InvalidPort,
     #[allow(dead_code)]
     InvalidRoot,
+}
+
+#[derive(Debug, Clone)]
+pub enum StateErrorKind {
+    FsFailure,
+    NotFound,
 }
 
 #[derive(Debug, Clone)]

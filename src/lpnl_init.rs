@@ -1,7 +1,11 @@
-use crate::constants::{DEFAULT_DOMAIN, DEFAULT_PORT, LPNL_TMP_DIR, NGINX_SITES_ENABLED_DIR, WWW_ROOT_DIR};
+use crate::constants::{
+    DEFAULT_DOMAIN, DEFAULT_PORT, 
+    LPNL_TMP_DIR, NGINX_SITES_ENABLED_DIR, 
+    NGINX_SITES_DISABLED_DIR, WWW_ROOT_DIR,
+    LPNL_BACKUP_DIR
+};
 use crate::error::{InitErrorKind, LpnlError};
 use crate::validation::{get_domain, get_root, get_port};
-use crate::lpnl_backup::set_backup;
 use crate::commands::{proceed_nginx, proceed_check_nginx_with_dir};
 use std::{fs, path::PathBuf};
 
@@ -64,7 +68,7 @@ pub fn init_lpnl(domain: Option<String>, root: Option<PathBuf>, port: Option<u16
         Err(e) => return Err(e),
     }
 
-    Ok(println!("initialization finished successfully!"))
+    Ok(println!("Initialization finished successfully!"))
 }
 
 fn generate_config(domain: String, port: u16, root: String, is_for_test: bool) -> String {
@@ -125,17 +129,49 @@ fn init_nginx(domain: String, final_conf: String, test_conf: String, root: Strin
         }
     };
 
-    set_backup(Some(domain.clone()))?;
+
+    let mut backup_dir = PathBuf::from(LPNL_BACKUP_DIR);
+    backup_dir.push(&domain);
+    let backup_dir_str = backup_dir.to_str().unwrap().to_string();
+    match fs::create_dir_all(&backup_dir) {
+        Ok(_) => println!("Created backup folder in '{backup_dir_str}' successfully."),
+        Err(e) => return Err(LpnlError::InitError { 
+            message: format!("Unable to create a backup folder: {e}"),
+            kind: InitErrorKind::FsFailure
+        }) 
+    }
 
     // * initializing to sites enabled
-    let init_dir = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
-    match fs::write(init_dir.clone(), &final_conf) {
-        Ok(_) => {}
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Writing a config into an initialization file failed: {e}."),
-            kind: InitErrorKind::FsFailure
+    let nginx_sites_enabled_dir_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
+    let nginx_sites_disabled_dir_str = format!("{NGINX_SITES_DISABLED_DIR}/{domain}.conf");
+    let enabled_file = PathBuf::from(&nginx_sites_enabled_dir_str);
+    let disabled_file = PathBuf::from(&nginx_sites_disabled_dir_str);
+
+    if enabled_file.exists() && !disabled_file.exists() {
+        return Err(LpnlError::InitError { 
+            message: format!("'{domain}' is already initialized and enabled."),
+            kind: InitErrorKind::AlreadyExists
         })
+    } else if !enabled_file.exists() && disabled_file.exists() {
+        return Err(LpnlError::InitError { 
+            message: format!("'{domain}' is already initialized and disabled."),
+            kind: InitErrorKind::AlreadyExists
+        })
+    } else if enabled_file.exists() && disabled_file.exists() {
+        return Err(LpnlError::InitError { 
+            message: format!("'{domain}' is already initialized, enabled and disabled. Try removing file and initializing it again."),
+            kind: InitErrorKind::AlreadyExists
+        })
+    } else {
+        match fs::write(nginx_sites_enabled_dir_str.clone(), &final_conf) {
+            Ok(_) => {}
+            Err(e) => return Err(LpnlError::InitError { 
+                message: format!("Writing a config into an initialization file failed: {e}."),
+                kind: InitErrorKind::FsFailure
+            })
+        }
     }
+
     proceed_nginx()?;
 
     Ok(println!("Generated nginx config to: '{root}'."))
