@@ -10,9 +10,10 @@ pub fn set_backup(domain: Option<String>) -> Result<(), LpnlError> {
     let backup_dir_str = format!("{LPNL_BACKUP_DIR}/{domain}/{domain}.txt");
     let nginx_dir_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
 
-    let backup_dir = PathBuf::from(&backup_dir_str);
+    // let backup_dir = PathBuf::from(&backup_dir_str);
     let nginx_dir = PathBuf::from(&nginx_dir_str);
-    if !backup_dir.exists() || !nginx_dir.exists() {
+
+    if !nginx_dir.exists() {
         return Err(LpnlError::BackupError { 
             message: format!("Unable to find '{domain}' files. Suggest using setup or init."),
             kind: BackupErrorKind::NotFound
