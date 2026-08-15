@@ -72,15 +72,15 @@ fn remove_backup_configs(domain: String) -> Result<(), LpnlError> {
     backup_config_file.push(conf_name);
     
     match backup_config_file.exists() {
-        true => println!("Config file in '/etc/lpnl/backups/{domain}' found. Deleting it..."),
+        true => println!("Config file in '{LPNL_BACKUP_DIR}/{domain}' found. Deleting it..."),
         false => {
-            println!("No '{domain}' config file in '/etc/lpnl/backups/{domain}' found.");
+            println!("No '{domain}' config file in '{LPNL_BACKUP_DIR}/{domain}' found.");
             match backup_dir_only.exists() {
                 true => {
                     match fs::remove_dir(&backup_dir_only) {
-                        Ok(_) => println!("Backup folder in '/etc/lpnl/backups' successfully deleted."),
+                        Ok(_) => println!("Backup folder in '{LPNL_BACKUP_DIR}' successfully deleted."),
                         Err(e) => return Err(LpnlError::RemoveError {
-                            message: format!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}."),
+                            message: format!("Unable to delete the '{domain}' folder in '{LPNL_BACKUP_DIR}': {e}."),
                             kind: RemoveErrorKind::FsFailure
                         })
                     }
@@ -92,17 +92,17 @@ fn remove_backup_configs(domain: String) -> Result<(), LpnlError> {
     }
 
     match fs::remove_file(backup_config_file) {
-        Ok(_) => println!("Backup config file in '/etc/lpnl/backups/{domain}' successfully deleted."),
+        Ok(_) => println!("Backup config file in '{LPNL_BACKUP_DIR}/{domain}' successfully deleted."),
         Err(e) => return Err(LpnlError::RemoveError {
-            message: format!("Unable to delete the config file in '/etc/lpnl/backups/{domain}': {e}."),
+            message: format!("Unable to delete the config file in '{LPNL_BACKUP_DIR}/{domain}': {e}."),
             kind: RemoveErrorKind::FsFailure
         })
     }
 
     match fs::remove_dir(backup_dir_only) {
-        Ok(_) => println!("Backup folder in '/etc/lpnl/backups' successfully deleted."),
+        Ok(_) => println!("Backup folder in '{LPNL_BACKUP_DIR}' successfully deleted."),
         Err(e) => return Err(LpnlError::RemoveError {
-            message: format!("Unable to delete the '{domain}' folder in '/etc/lpnl/backups': {e}."),
+            message: format!("Unable to delete the '{domain}' folder in '{LPNL_BACKUP_DIR}': {e}."),
             kind: RemoveErrorKind::FsFailure
         })
     }
@@ -114,17 +114,17 @@ fn remove_www_files(domain: String) -> Result<(), LpnlError> {
     default_root_dir.push(&domain);
     
     match default_root_dir.exists() {
-        true => println!("Root files in '/var/www/{domain}' found. Deleting it..."),
+        true => println!("Root files in '{WWW_ROOT_DIR}' found. Deleting it..."),
         false => {
-            println!("No root files in '/var/www/{domain}' found.");
+            println!("No '{domain}' root files in '{WWW_ROOT_DIR}' found.");
             return Ok(())
         }
     }
 
     match fs::remove_dir_all(default_root_dir) {
-        Ok(_) => println!("Backup file in '/var/www/{domain}' successfully deleted."),
+        Ok(_) => println!("Root files in '{WWW_ROOT_DIR}' successfully deleted."),
         Err(e) => return Err(LpnlError::RemoveError { 
-            message: format!("Unable to delete the backup file in '/var/www/{domain}': {e}."), 
+            message: format!("Unable to delete the '{domain}' files in '{WWW_ROOT_DIR}': {e}."), 
             kind: RemoveErrorKind::FsFailure
         })
     }
@@ -136,25 +136,13 @@ fn remove_www_files(domain: String) -> Result<(), LpnlError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // * domain logic test copy
-    fn check_domain(domain: String) -> Result<String, LpnlError> {
-        if domain.contains("/") || domain.contains("..") || domain.trim().is_empty() {
-            return Err(LpnlError::RemoveError{
-                message: "'/', '..' and empty strings are not allowed.".to_string(),
-                kind: RemoveErrorKind::InvalidDomain
-            })
-        }
-
-        let domain = domain.trim().to_string();
-        return Ok(domain)
-    }
+    use crate::error::ValidationErrorKind;
 
     // ! domain tests
 
     #[test]
     fn test_remove_get_domain_ok() {
-        let domain = check_domain("bye_world".to_string());
+        let domain = get_domain(Some("bye_world".to_string()));
         match domain {
             Err(_) => panic!("Unexpected Error."),
             Ok(d) => assert_eq!(d, "bye_world".to_string())
@@ -163,12 +151,12 @@ mod tests {
 
     #[test]
     fn test_remove_default_domain_empty_err() {
-        let domain = check_domain("".to_string());
+        let domain = get_domain(Some("".to_string()));
         match domain {
             Err(e) => {
                 match e {
-                    LpnlError::RemoveError { kind, .. } => {
-                        assert!(matches!(kind, RemoveErrorKind::InvalidDomain))
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidDomain))
                     }
                     _ => panic!("Expected RemoveError.")
                 }
@@ -179,12 +167,12 @@ mod tests {
 
     #[test]
     fn test_remove_default_domain_spaces_err() {
-        let domain = check_domain("    ".to_string());
+        let domain = get_domain(Some("    ".to_string()));
         match domain {
             Err(e) => {
                 match e {
-                    LpnlError::RemoveError { kind, .. } => {
-                        assert!(matches!(kind, RemoveErrorKind::InvalidDomain))
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidDomain))
                     }
                     _ => panic!("Expected RemoveError.")
                 }
@@ -195,12 +183,12 @@ mod tests {
 
     #[test]
     fn test_remove_default_invalid_str_err() {
-        let domain = check_domain("/..".to_string());
+        let domain = get_domain(Some("/..".to_string()));
         match domain {
             Err(e) => {
                 match e {
-                    LpnlError::RemoveError { kind, .. } => {
-                        assert!(matches!(kind, RemoveErrorKind::InvalidDomain))
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidDomain))
                     }
                     _ => panic!("Expected RemoveError.")
                 }

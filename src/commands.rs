@@ -1,5 +1,5 @@
-use crate::error::{LpnlError, CommandErrorKind};
-use std::{ process::Command};
+use crate::{constants::TEST_FILE_DIR, error::{CommandErrorKind, LpnlError}};
+use std::{ fs, process::Command};
 
 pub fn proceed_nginx() -> Result<(), LpnlError> {
     let mut test_cmd = Command::new("nginx");
@@ -64,7 +64,17 @@ pub fn proceed_check_nginx() -> Result<(), LpnlError> {
     }
 }
 
-pub fn proceed_check_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
+pub fn proceed_check_nginx_tmp(contents: &str) -> Result<(), LpnlError> {
+    let path = &TEST_FILE_DIR.to_string();
+
+    match fs::write(path, contents) {
+        Ok(_) => {}
+        Err(e) => return Err(LpnlError::CommandError { 
+            message: format!("Unable to create a test file: {e}"), 
+            kind: CommandErrorKind::FsFailure
+        })
+    }
+
     let mut test_cmd = Command::new("nginx");
     test_cmd.args(["-t", "-c", path]);
     match proceed_cmd(
@@ -73,7 +83,26 @@ pub fn proceed_check_nginx_with_dir(path: &str) -> Result<(), LpnlError> {
         "Config file testing".to_string(),
         "Unable to test the config file.".to_string()
     ) {
-        Ok(_) => Ok(()),
-        Err(e) => return Err(e)
+        Ok(_) => {},
+        Err(e) => {
+            match fs::remove_file(path) {
+                Ok(_) => {},
+                Err(e) => return Err(LpnlError::CommandError { 
+                    message: format!("Unable to remove a test file: {e}"), 
+                    kind: CommandErrorKind::FsFailure
+                })
+            }
+            return Err(e)
+        }
     }
+
+    match fs::remove_file(path) {
+        Ok(_) => {},
+        Err(e) => return Err(LpnlError::CommandError { 
+            message: format!("Unable to remove a test file: {e}"), 
+            kind: CommandErrorKind::FsFailure
+        })
+    }
+
+    Ok(())
 }

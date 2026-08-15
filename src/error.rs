@@ -91,6 +91,7 @@ pub enum ValidationErrorKind {
 #[derive(Debug, Clone)]
 pub enum CommandErrorKind {
     InvalidCmdResult,
+    FsFailure,
 }
 
 #[derive(Debug, Clone)]
@@ -102,15 +103,7 @@ pub enum BackupErrorKind {
 #[derive(Debug, Clone)]
 pub enum InitErrorKind {
     FsFailure,
-    InvalidCmdResult,
     AlreadyExists,
-
-    #[allow(dead_code)]
-    InvalidDomain,
-    #[allow(dead_code)]
-    InvalidPort,
-    #[allow(dead_code)]
-    InvalidRoot,
 }
 
 #[derive(Debug, Clone)]
@@ -122,8 +115,6 @@ pub enum StateErrorKind {
 #[derive(Debug, Clone)]
 pub enum RemoveErrorKind {
     FsFailure,
-    #[allow(dead_code)]
-    InvalidDomain,
 }
 
 #[derive(Debug, Clone)]

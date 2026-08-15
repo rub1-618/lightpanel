@@ -12,6 +12,8 @@ pub const LAST_MAJOR_VER: u32               = 1;
 pub const LAST_MINOR_VER: u32               = 30;
 pub const LAST_PATCH_VER: u32               = 4;
 
+// test file dir
+pub const TEST_FILE_DIR: &str               = "/etc/lpnl/tmp/run_test.txt";
 
 // init
 pub const DEFAULT_PORT: u16                 = 8080;

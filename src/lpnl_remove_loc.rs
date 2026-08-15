@@ -1,13 +1,11 @@
-use crate::constants::{NGINX_SITES_ENABLED_DIR, LPNL_TMP_DIR};
+use crate::constants::{NGINX_SITES_ENABLED_DIR};
 use crate::error::{LpnlError, RemoveLocErrorKind};
 use crate::validation::{get_domain, get_location};
-use crate::commands::{proceed_nginx, proceed_check_nginx_with_dir, proceed_check_nginx};
+use crate::commands::{proceed_nginx, proceed_check_nginx_tmp, proceed_check_nginx};
 use std::{fs, path::PathBuf};
 
 pub fn remove_loc(domain: Option<String>, location: Option<String>) -> Result<(), LpnlError> {
     proceed_check_nginx()?;
-
-    let test_file = format!("{LPNL_TMP_DIR}/run_test.txt");
 
     let domain = get_domain(domain)?;
     let location = get_location(location)?;
@@ -54,39 +52,12 @@ pub fn remove_loc(domain: Option<String>, location: Option<String>) -> Result<()
     
     // * testing + launching
     let test_conf = format!("events {{  }} http {{ {final_conf} }}");
-    match fs::write(&test_file, &test_conf) {
-        Ok(_) => {
-            match proceed_check_nginx_with_dir(&test_file) {
-                Ok(_) => {
-                    match fs::remove_file(test_file) {
-                        Ok(_) => {},
-                        Err(e) => return Err(LpnlError::RemoveLocError { 
-                            message: format!("Unable to remove the testing file: {e}."),
-                            kind: RemoveLocErrorKind::FsFailure
-                        })
-                    }
-                    match fs::write(&sites_enabled_conf_str, &final_conf) {
-                        Ok(_) => proceed_nginx()?,
-                        Err(e) => return Err(LpnlError::RemoveLocError { 
-                            message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
-                            kind: RemoveLocErrorKind::FsFailure
-                        })
-                    }
-                }
-                Err(e) => {
-                    match fs::remove_file(test_file) {
-                        Ok(_) => {},
-                        Err(e) => return Err(LpnlError::RemoveLocError { 
-                                message: format!("Unable to remove the testing file: {e}."),
-                                kind: RemoveLocErrorKind::FsFailure
-                            })
-                        }
-                    return Err(e)
-                }
-            }
-        }
+    
+    proceed_check_nginx_tmp(&test_conf)?;
+    match fs::write(&sites_enabled_conf_str, &final_conf) {
+        Ok(_) => proceed_nginx()?,
         Err(e) => return Err(LpnlError::RemoveLocError { 
-            message: format!("Unable to check the config in '{test_file}': {e}"),
+            message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
             kind: RemoveLocErrorKind::FsFailure
         })
     }

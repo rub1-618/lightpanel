@@ -1,12 +1,12 @@
 use crate::constants::{
     DEFAULT_DOMAIN, DEFAULT_PORT, 
-    LPNL_TMP_DIR, NGINX_SITES_ENABLED_DIR, 
+    NGINX_SITES_ENABLED_DIR, LPNL_BACKUP_DIR,
     NGINX_SITES_DISABLED_DIR, WWW_ROOT_DIR,
-    LPNL_BACKUP_DIR
 };
 use crate::error::{InitErrorKind, LpnlError};
+use crate::lpnl_backup::set_backup;
 use crate::validation::{get_domain, get_root, get_port};
-use crate::commands::{proceed_nginx, proceed_check_nginx_with_dir};
+use crate::commands::{proceed_nginx, proceed_check_nginx_tmp};
 use std::{fs, path::PathBuf};
 
 pub fn init_lpnl(domain: Option<String>, root: Option<PathBuf>, port: Option<u16>, is_default: bool) -> Result<(), LpnlError> {
@@ -96,50 +96,7 @@ server {{
 
 // ! creating nginx.conf
 fn init_nginx(domain: String, final_conf: String, test_conf: String, root: String) -> Result<(), LpnlError> {
-
-    // * testing
-    let test_file = format!("{LPNL_TMP_DIR}/run_test.txt");
-
-    match fs::write(test_file.clone(), &test_conf) {
-        Ok(_) => {}
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Writing a config into an initialization file failed: {e}."),
-            kind: InitErrorKind::FsFailure
-        })
-    }
-    match proceed_check_nginx_with_dir(&test_file) {
-        Ok(_) => {
-            match fs::remove_file(test_file) {
-                Ok(_) => {},
-                Err(e) => return Err(LpnlError::InitError { 
-                    message: format!("Unable to remove the testing file: {e}."),
-                    kind: InitErrorKind::InvalidCmdResult
-                })
-            }
-        }
-        Err(e) => {
-            match fs::remove_file(test_file) {
-                Ok(_) => {},
-                Err(e) => return Err(LpnlError::InitError { 
-                    message: format!("Unable to remove the testing file: {e}."),
-                    kind: InitErrorKind::InvalidCmdResult
-                })
-            }
-            return Err(e)
-        }
-    };
-
-
-    let mut backup_dir = PathBuf::from(LPNL_BACKUP_DIR);
-    backup_dir.push(&domain);
-    let backup_dir_str = backup_dir.to_str().unwrap().to_string();
-    match fs::create_dir_all(&backup_dir) {
-        Ok(_) => println!("Created backup folder in '{backup_dir_str}' successfully."),
-        Err(e) => return Err(LpnlError::InitError { 
-            message: format!("Unable to create a backup folder: {e}"),
-            kind: InitErrorKind::FsFailure
-        }) 
-    }
+    proceed_check_nginx_tmp(&test_conf)?;
 
     // * initializing to sites enabled
     let nginx_sites_enabled_dir_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
@@ -173,6 +130,25 @@ fn init_nginx(domain: String, final_conf: String, test_conf: String, root: Strin
     }
 
     proceed_nginx()?;
+
+
+    let mut backup_dir = PathBuf::from(LPNL_BACKUP_DIR);
+    let domain_as_dir = PathBuf::from(&domain);
+    backup_dir.push(domain_as_dir);
+    match &backup_dir.exists() {
+        true  => {},
+        false => { 
+            match fs::create_dir_all(&backup_dir) {
+                Ok(_)  => {},
+                Err(_) => return Err(LpnlError::InitError { 
+                        message: format!("Unable to create '{domain}' backup directory."), 
+                        kind: InitErrorKind::FsFailure
+                    })
+                }
+        }
+    }
+
+    set_backup(Some(domain))?;
 
     Ok(println!("Generated nginx config to: '{root}'."))
 }

@@ -1,6 +1,6 @@
 use crate::constants::{LPNL_BACKUP_DIR, NGINX_SITES_ENABLED_DIR, LPNL_TMP_DIR};
 use crate::error::{LpnlError, BackupErrorKind};
-use crate::commands::{proceed_check_nginx_with_dir, proceed_check_nginx, proceed_nginx};
+use crate::commands::{proceed_check_nginx_tmp, proceed_check_nginx, proceed_nginx};
 use crate::validation::get_domain;
 use std::{fs, path::PathBuf};
 
@@ -63,8 +63,8 @@ pub fn get_backup(domain: Option<String>) -> Result<(), LpnlError> {
 
     // * testing
     let test_file = format!("{LPNL_TMP_DIR}/run_test.txt");
-    let test_contents = format!("events {{  }} http {{ {contents} }}");
-    match fs::write(&test_file, test_contents) {
+    let test_conf = format!("events {{  }} http {{ {contents} }}");
+    match fs::write(&test_file, &test_conf) {
         Ok(_) => {},
         Err(e) => return Err(LpnlError::BackupError { 
             message: format!("Unable to setup a test file: {e}"),
@@ -72,27 +72,7 @@ pub fn get_backup(domain: Option<String>) -> Result<(), LpnlError> {
         }) 
     }
 
-    match proceed_check_nginx_with_dir(&test_file) {
-        Ok(_) => {
-            match fs::remove_file(&test_file) {
-                Ok(_) => {},
-                Err(e) => return Err(LpnlError::BackupError { 
-                    message: format!("Unable to remove a config file: {e}"),
-                    kind: BackupErrorKind::FsFailure
-                })
-            }
-        },
-        Err(e) => {
-            match fs::remove_file(&test_file) {
-                Ok(_) => {},
-                Err(e) => return Err(LpnlError::BackupError { 
-                    message: format!("Unable to remove a config file: {e}"),
-                    kind: BackupErrorKind::FsFailure
-                })
-            }
-            return Err(e);
-        }
-    }
+    proceed_check_nginx_tmp(&test_conf)?;
 
     match fs::write(&nginx_dir_str, contents) {
         Ok(_) => println!("File rewrite successful."),
