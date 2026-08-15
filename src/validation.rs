@@ -218,3 +218,313 @@ pub fn get_location(location: Option<String>) -> Result<String, LpnlError> {
         return Ok(input.trim().to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use crate::error::{LpnlError, ValidationErrorKind};
+    use crate::validation::{
+        get_domain, domain_validates,
+        get_port, port_validates,
+        get_root, root_validates,
+        get_proxy, proxy_validates,
+        get_location, location_validates,
+    };
+
+    // ! domain tests
+
+    #[test]
+    fn test_get_domain_ok() {
+        let domain = get_domain(Some("example.com".to_string()));
+        match domain {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(d) => assert_eq!(d, "example.com".to_string())
+        }
+    }
+
+    #[test]
+    fn test_get_domain_err() {
+        let domain = get_domain(Some("/..domain".to_string()));
+        match domain {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidDomain))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_get_domain_empty_err() {
+        let domain = get_domain(Some("".to_string()));
+        match domain {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidDomain))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_domain_validation_ok() {
+        let domain = "example.com".to_string();
+        assert_eq!(domain_validates(domain), true);
+    }
+
+    #[test]
+    fn test_domain_validation_err() {
+        let domain = "..".to_string();
+        assert_eq!(domain_validates(domain), false);
+    }
+
+    #[test]
+    fn test_domain_validation_empty_err() {
+        let domain = "".to_string();
+        assert_eq!(domain_validates(domain), false);
+    }
+
+    // ! port tests
+
+    #[test]
+    fn test_get_port_ok() {
+        let port = get_port(Some(80));
+        match port {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(p) => assert_eq!(p, 80)
+        }
+    }
+
+    #[test]
+    fn test_get_port_err() {
+        let port = get_port(Some(0));
+        match port {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidPort))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_port_validation_empty_ok() {
+        let port: u16 = 8080;
+        assert_eq!(port_validates(port), true);
+    }
+
+    #[test]
+    fn test_port_validation_empty_err() {
+        let port: u16 = 0;
+        assert_eq!(port_validates(port), false);
+    }
+
+    // ! root tests
+
+    #[test]
+    fn test_get_root_ok() {
+        let valid_path = PathBuf::from("/etc");
+        let root = get_root(Some(valid_path));
+        match root {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(r) => assert_eq!(r, "/etc".to_string())
+        }
+    }
+
+    #[test]
+    fn test_get_root_err() {
+        let invalid_path = PathBuf::from("/../hello");
+        let root = get_root(Some(invalid_path));
+        match root {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidRoot))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_root_validation_ok() {
+        let root = PathBuf::from("/etc");
+        assert_eq!(root_validates(root), true);
+    }
+
+    #[test]
+    fn test_root_validation_err() {
+        let root = PathBuf::from("..");
+        assert_eq!(root_validates(root), false);
+    }
+
+    #[test]
+    fn test_root_validation_empty_err() {
+        let root = PathBuf::from("");
+        assert_eq!(root_validates(root), false);
+    }
+
+    #[test]
+    fn test_root_validation_does_not_exist_err() {
+        let root = PathBuf::from("/dir-that-does-not-exist");
+        assert_eq!(root_validates(root), false);
+    }
+
+    // ! proxy tests
+
+    #[test]
+    fn test_get_proxy_ok() {
+        let proxy = get_proxy(Some("localhost:8080".to_string()));
+        match proxy {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(p) => assert_eq!(p, "localhost:8080".to_string())
+        }
+    }
+
+    #[test]
+    fn test_get_proxy_err() {
+        let proxy = get_proxy(Some("invalid_proxy".to_string()));
+        match proxy {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidProxy))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_proxy_validation_ok() {
+        let proxy = "http://example.com".to_string();
+        assert_eq!(proxy_validates(proxy), true);
+    }
+
+    #[test]
+    fn test_proxy_validation_err() {
+        let proxy = "".to_string();
+        assert_eq!(proxy_validates(proxy), false);
+    }
+
+    // ! location tests
+
+    #[test]
+    fn test_get_location_ok() {
+        let location = get_location(Some("/api".to_string()));
+        match location {
+            Err(_) => panic!("Unexpected Error."),
+            Ok(l) => assert_eq!(l, "/api".to_string())
+        }
+    }
+
+    #[test]
+    fn test_get_location_err() {
+        let location = get_location(Some("/..".to_string()));
+        match location {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidLocation))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_get_location_empty_err() {
+        let location = get_location(Some("".to_string()));
+        match location {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidLocation))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_get_location_no_slash_err() {
+        let location = get_location(Some("invalid_location".to_string()));
+        match location {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidLocation))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_get_location_is_root_err() {
+        let location = get_location(Some("/".to_string()));
+        match location {
+            Err(e) => {
+                match e {
+                    LpnlError::ValidationError { kind, .. } => {
+                        assert!(matches!(kind, ValidationErrorKind::InvalidLocation))
+                    }
+                    _ => panic!("Expected ValidationError.")
+                }
+            }
+            Ok(_) => panic!("Expected Error.")
+        }
+    }
+
+    #[test]
+    fn test_location_validation_ok() {
+        let location = "/api".to_string();
+        assert_eq!(location_validates(location), true);
+    }
+
+    #[test]
+    fn test_location_validation_err() {
+        let location = "/..".to_string();
+        assert_eq!(location_validates(location), false);
+    }
+
+    #[test]
+    fn test_location_validation_empty_err() {
+        let location = "".to_string();
+        assert_eq!(location_validates(location), false);
+    }
+
+    #[test]
+    fn test_location_validation_no_slash_err() {
+        let location = "invalid_location".to_string();
+        assert_eq!(location_validates(location), false);
+    }
+
+    #[test]
+    fn test_location_validation_is_root_err() {
+        let location = "/".to_string();
+        assert_eq!(location_validates(location), false);
+    }
+}
