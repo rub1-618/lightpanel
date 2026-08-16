@@ -38,7 +38,6 @@ fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
         },
         false => {
             println!("No '{domain}' config file in '{NGINX_SITES_ENABLED_DIR}' found.");
-            return Ok(())
         }
     }
     
@@ -55,7 +54,6 @@ fn remove_ngnix(domain: String) -> Result<(), LpnlError> {
         },
         false => {
             println!("No '{domain}' config file in '{NGINX_SITES_DISABLED_DIR}' found.");
-            return Ok(())
         }
     }
 
