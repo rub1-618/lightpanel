@@ -4,7 +4,7 @@ use crate::validation::{get_domain, get_location, get_proxy, get_root};
 use crate::commands::{proceed_nginx, proceed_check_nginx_tmp};
 use std::{io, fs, path::PathBuf};
 
-pub fn add_loc(
+pub fn add_loc( // todo: sites-disabled dir checking and proceeding
     domain: Option<String>, nloc: Option<String>, 
     nroot: Option<PathBuf>, nproxy: Option<String>
 ) -> Result<(), LpnlError> {
