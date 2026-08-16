@@ -30,10 +30,16 @@ pub fn enable_domain(domain: Option<String>) -> Result<(), LpnlError> {
         Ok(_) => {
             match fs::remove_file(conf_dir) {
                 Ok(_) => {},
-                Err(e) => eprintln!("Unable to delete the copy of '{domain}.conf' from '{NGINX_SITES_DISABLED_DIR}': {e}")
+                Err(e) => return Err(LpnlError::StateError{
+                    message: format!("Unable to delete the copy of '{domain}.conf' from '{NGINX_SITES_DISABLED_DIR}': {e}"),
+                    kind: StateErrorKind::FsFailure
+                })
             }
         },
-        Err(e) => eprintln!("Unable to move '{domain}.conf' to '{NGINX_SITES_ENABLED_DIR}': {e}")
+        Err(e) => return Err(LpnlError::StateError{
+            message: format!("Unable to move '{domain}.conf' to '{NGINX_SITES_ENABLED_DIR}': {e}"),
+            kind: StateErrorKind::FsFailure
+        })
     }
 
     Ok(println!("\nConfiguration file of '{domain}' enabled succesfully."))
@@ -56,10 +62,16 @@ pub fn disable_domain(domain: Option<String>) -> Result<(), LpnlError> {
         Ok(_) => {
             match fs::remove_file(conf_dir) {
                 Ok(_) => {},
-                Err(e) => eprintln!("Unable to delete the copy of '{domain}.conf' from '{NGINX_SITES_ENABLED_DIR}': {e}")
+                Err(e) => return Err(LpnlError::StateError{
+                    message: format!("Unable to delete the copy of '{domain}.conf' from '{NGINX_SITES_ENABLED_DIR}': {e}"),
+                    kind: StateErrorKind::FsFailure
+                })
             }
         },
-        Err(e) => eprintln!("Unable to move '{domain}.conf' to '{NGINX_SITES_DISABLED_DIR}': {e}")
+        Err(e) => return Err(LpnlError::StateError{
+            message: format!("Unable to move '{domain}.conf' to '{NGINX_SITES_DISABLED_DIR}': {e}"),
+            kind: StateErrorKind::FsFailure,
+        })
     }
 
     Ok(println!("\nConfiguration file of '{domain}' disabled succesfully."))
