@@ -6,10 +6,11 @@ use crate::constants::{
 use crate::error::{InitErrorKind, LpnlError};
 use crate::lpnl_backup::set_backup;
 use crate::validation::{get_domain, get_root, get_port};
-use crate::commands::{proceed_nginx, proceed_check_nginx_tmp};
+use crate::commands::{proceed_check_nginx, proceed_check_nginx_tmp, proceed_nginx};
 use std::{fs, path::PathBuf};
 
 pub fn init_lpnl(domain: Option<String>, root: Option<PathBuf>, port: Option<u16>, is_default: bool) -> Result<(), LpnlError> {
+    proceed_check_nginx()?;
     // * domain recieving
     let domain = match domain {
         Some(_) => get_domain(domain)?,
