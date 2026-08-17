@@ -1,5 +1,7 @@
 # lightpanel - a light CLI server panel, built fully on Rust. Unix-only.
 
+# COMMANDS
+
 # -- Setup --
 ```
 sudo lpnl setup
@@ -116,3 +118,10 @@ Displays you a short version of 'stats' shpwing you:
 lpnl disk-stats
 ```
 Shows you just an information about the disks (name, kind, available, total and used storage, available and free inodes).
+
+# DEPENDENCIES
+
+- clap (CLI)
+- sysinfo (stats displaying, a main part of the monitoring)
+- nix (inodes of the disks' displaying)
+- url (domain parsing)
