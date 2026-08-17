@@ -6,7 +6,7 @@ pub fn proceed_nginx() -> Result<(), LpnlError> {
     test_cmd.arg("-t");
     match proceed_cmd(
         &mut test_cmd, 
-        "Config file tested succesfully.".to_string(), 
+        "Config file tested successfully.".to_string(), 
         "Config file testing".to_string(),
         "Unable to test the config file.".to_string()
     ) {
@@ -18,7 +18,7 @@ pub fn proceed_nginx() -> Result<(), LpnlError> {
     launch_cmd.args(["-s", "reload"]);
     match proceed_cmd(
         &mut launch_cmd, 
-        "Config file launched succesfully.".to_string(), 
+        "Config file launched successfully.".to_string(), 
         "Config file launching".to_string(),
         "Unable to launch the config file.".to_string()
     ) {
@@ -55,7 +55,7 @@ pub fn proceed_check_nginx() -> Result<(), LpnlError> {
     test_cmd.arg("-t");
     match proceed_cmd(
         &mut test_cmd, 
-        "Config file tested succesfully.".to_string(), 
+        "Config file tested successfully.".to_string(), 
         "Config file testing".to_string(),
         "Unable to test the config file.".to_string()
     ) {
@@ -79,7 +79,7 @@ pub fn proceed_check_nginx_tmp(contents: &str) -> Result<(), LpnlError> {
     test_cmd.args(["-t", "-c", path]);
     match proceed_cmd(
         &mut test_cmd, 
-        "Config file tested succesfully.".to_string(), 
+        "Config file tested successfully.".to_string(), 
         "Config file testing".to_string(),
         "Unable to test the config file.".to_string()
     ) {

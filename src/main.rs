@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 
 use crate::error::LpnlError;
 
-mod setup;
+mod lpnl_setup;
 mod constants;
 mod validation;
 mod commands;
@@ -85,7 +85,7 @@ fn main() {
     proceed_with_check(dir_init::ensure_lpnl_directories());
     match args.command {
         Commands::Setup => {
-            let setup_message = proceed_with_str(setup::nginx_setup());
+            let setup_message = proceed_with_str(lpnl_setup::nginx_setup());
             println!("{}", setup_message);
         }
 

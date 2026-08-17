@@ -47,7 +47,10 @@ pub fn init_lpnl(domain: Option<String>, root: Option<PathBuf>, port: Option<u16
                     true  => root_dir.to_str().unwrap().to_string(),
                     false => { 
                         match fs::create_dir_all(&root_dir) {
-                            Ok(_)  => root_dir.to_str().unwrap().to_string(),
+                            Ok(_)  => {
+                                println!("Root folder created successfully.");
+                                root_dir.to_str().unwrap().to_string()
+                            },
                             Err(_) => return Err(LpnlError::InitError { 
                                 message: format!("Unable to create '{domain}' root directory."), 
                                 kind: InitErrorKind::FsFailure
@@ -64,10 +67,7 @@ pub fn init_lpnl(domain: Option<String>, root: Option<PathBuf>, port: Option<u16
     let config = generate_config(domain.clone(), port, root.clone(), false);
     let test_config = generate_config(domain.clone(), port, root.clone(), true);
 
-    match init_nginx(domain, config, test_config, root) {
-        Ok(_) => {},
-        Err(e) => return Err(e),
-    }
+    init_nginx(domain, config, test_config)?;
 
     Ok(println!("Initialization finished successfully!"))
 }
@@ -96,7 +96,7 @@ server {{
 }
 
 // ! creating nginx.conf
-fn init_nginx(domain: String, final_conf: String, test_conf: String, root: String) -> Result<(), LpnlError> {
+fn init_nginx(domain: String, final_conf: String, test_conf: String) -> Result<(), LpnlError> {
     proceed_check_nginx_tmp(&test_conf)?;
 
     // * initializing to sites enabled
@@ -151,5 +151,5 @@ fn init_nginx(domain: String, final_conf: String, test_conf: String, root: Strin
 
     set_backup(Some(domain))?;
 
-    Ok(println!("Generated nginx config to: '{root}'."))
+    Ok(println!("Generated nginx config to: '{nginx_sites_enabled_dir_str}'."))
 }
