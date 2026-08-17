@@ -6,15 +6,14 @@ pub enum LpnlError {
     CommandError    { message: String, kind: CommandErrorKind       },
     BackupError     { message: String, kind: BackupErrorKind        },
     InitError       { message: String, kind: InitErrorKind          },
-    StateError      { message: String, kind: StateErrorKind          },
+    StateError      { message: String, kind: StateErrorKind         },
     RemoveError     { message: String, kind: RemoveErrorKind        },
     ListError       { message: String, kind: ListErrorKind          },
     AddLocError     { message: String, kind: AddLocErrorKind        },
     RemoveLocError  { message: String, kind: RemoveLocErrorKind     },
-    // No error for stats (yet).
 }
 
-pub fn report_error(error: LpnlError) {
+pub fn report_error(error: LpnlError) { //todo: less 'eprintln()' copying
     match &error {
         LpnlError::SetupError { message, kind } => {
             eprintln!("[{error:?}({kind:?})] {message}");
