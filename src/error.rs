@@ -14,52 +14,21 @@ pub enum LpnlError {
 }
 
 pub fn report_error(error: LpnlError) { //todo: less 'eprintln()' copying
-    match &error {
-        LpnlError::SetupError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(1);
-        }
-        LpnlError::DirInitError { message, kind } => {
-            eprintln!("[({kind:?}] {message}");
-            std::process::exit(2);
-        },
-        LpnlError::ValidationError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(3);
-        },
-        LpnlError::CommandError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(4);
-        },
-        LpnlError::BackupError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(5);
-        },
-        LpnlError::InitError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(6);
-        },
-        LpnlError::StateError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(7);
-        },
-        LpnlError::RemoveError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(8);
-        },
-        LpnlError::ListError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(9);
-        },
-        LpnlError::AddLocError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(10);
-        },
-        LpnlError::RemoveLocError { message, kind } => {
-            eprintln!("[{kind:?}] {message}");
-            std::process::exit(11);
-        },
-    }    
+    let (message, kind, code) = match &error {
+        LpnlError::SetupError       { message, kind }        => (message, format!("{:?}", kind), 1),
+        LpnlError::DirInitError     { message, kind }      => (message, format!("{:?}", kind), 2),
+        LpnlError::ValidationError  { message, kind }   => (message, format!("{:?}", kind), 3),
+        LpnlError::CommandError     { message, kind }      => (message, format!("{:?}", kind), 4),
+        LpnlError::BackupError      { message, kind }       => (message, format!("{:?}", kind), 5),
+        LpnlError::InitError        { message, kind }         => (message, format!("{:?}", kind), 6),
+        LpnlError::StateError       { message, kind }        => (message, format!("{:?}", kind), 7),
+        LpnlError::RemoveError      { message, kind }       => (message, format!("{:?}", kind), 8),
+        LpnlError::ListError        { message, kind }         => (message, format!("{:?}", kind), 9),
+        LpnlError::AddLocError      { message, kind }       => (message, format!("{:?}", kind), 10),
+        LpnlError::RemoveLocError   { message, kind }    => (message, format!("{:?}", kind), 11),
+    };
+    eprintln!("[{kind}] {message}");
+    std::process::exit(code)
 }
 
 #[derive(Debug, Clone)]
