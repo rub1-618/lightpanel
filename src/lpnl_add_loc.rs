@@ -96,7 +96,7 @@ pub fn add_loc( // todo: sites-disabled dir checking and proceeding
 
 fn proceed_add_loc(location: String, data: String, target_dir: PathBuf, mode: LocMode) -> Result<(), LpnlError> {
 
-   let target_conf_str = target_dir.to_str().unwrap().to_string(); 
+    let target_conf_str = target_dir.to_str().unwrap().to_string(); 
     let target_conf_as_str = match fs::read_to_string(&target_dir) {
         Ok(s) => s,
         Err(e) => return Err(LpnlError::AddLocError { 

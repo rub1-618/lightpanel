@@ -16,47 +16,47 @@ pub enum LpnlError {
 pub fn report_error(error: LpnlError) { //todo: less 'eprintln()' copying
     match &error {
         LpnlError::SetupError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(1);
         }
         LpnlError::DirInitError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[({kind:?}] {message}");
             std::process::exit(2);
         },
         LpnlError::ValidationError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(3);
         },
         LpnlError::CommandError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(4);
         },
         LpnlError::BackupError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(5);
         },
         LpnlError::InitError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(6);
         },
         LpnlError::StateError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(7);
         },
         LpnlError::RemoveError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(8);
         },
         LpnlError::ListError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(9);
         },
         LpnlError::AddLocError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(10);
         },
         LpnlError::RemoveLocError { message, kind } => {
-            eprintln!("[{error:?}({kind:?})] {message}");
+            eprintln!("[{kind:?}] {message}");
             std::process::exit(11);
         },
     }    
@@ -134,4 +134,5 @@ pub enum AddLocErrorKind {
 pub enum RemoveLocErrorKind {
     FsFailure,
     NotFound,
+    AlreadyExists,
 }
