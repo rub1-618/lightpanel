@@ -1,4 +1,4 @@
-use crate::constants::{NGINX_SITES_ENABLED_DIR};
+use crate::constants::{NGINX_SITES_ENABLED_DIR, NGINX_SITES_DISABLED_DIR};
 use crate::error::{LpnlError, AddLocErrorKind};
 use crate::validation::{get_domain, get_location, get_proxy, get_root};
 use crate::commands::{proceed_nginx, proceed_check_nginx_tmp};
@@ -27,33 +27,60 @@ pub fn add_loc( // todo: sites-disabled dir checking and proceeding
         })
     }
 
-    let sites_enabled_conf_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
-    let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str);
-    if !sites_enabled_conf_dir.exists() {
+    let sites_disabled_dir = PathBuf::from(NGINX_SITES_DISABLED_DIR);
+    if !sites_disabled_dir.exists() {
         return Err(LpnlError::AddLocError { 
-            message: format!("Unable to find a config file folder in '{NGINX_SITES_ENABLED_DIR}'. Consider using the setup command."),
+            message: format!("Unable to find a config files' folder in '{NGINX_SITES_DISABLED_DIR}'. Consider using the setup command."),
+            kind: AddLocErrorKind::FsFailure
+        })
+    }
+
+    let sites_enabled_conf_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
+    let sites_disabled_conf_str = format!("{NGINX_SITES_DISABLED_DIR}/{domain}.conf");
+    let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str);
+    let sites_disabled_conf_dir = PathBuf::from(sites_disabled_conf_str);
+    
+    if sites_enabled_conf_dir.exists() && sites_disabled_conf_dir.exists() {
+        return Err(LpnlError::AddLocError { 
+            message: format!("'{domain}' is enabled and disabled. Try removing file and initializing it again."),
+            kind: AddLocErrorKind::AlreadyExists
+        })
+    }
+
+    if !sites_enabled_conf_dir.exists() && !sites_disabled_conf_dir.exists() {
+        return Err(LpnlError::AddLocError { 
+            message: format!("Unable to find '{domain}' config."),
             kind: AddLocErrorKind::NotFound
         })
     }
 
+    let target_dir = match sites_enabled_conf_dir.exists() {
+        true  => {
+            sites_enabled_conf_dir
+        }
+        false => {
+            sites_disabled_conf_dir
+        }
+    };
+
     if nproxy.is_none() && nroot.is_none() {
         if is_proxy_mode()? {
             let proxy = get_proxy(nproxy)?;
-            return add_proxy_loc(domain, location, proxy)
+            return add_proxy_loc(location, proxy, target_dir);
         } else {
             let root  = get_root(nroot.clone())?;
-            return add_root_loc(domain, location, root);
+            return add_root_loc(location, root, target_dir);
         }
     }
 
     if nroot.is_some() {
         let root  = get_root(nroot.clone())?;
-        return add_root_loc(domain, location, root);
+        return add_root_loc(location, root, target_dir);
     };
 
     if nproxy.is_some() {
         let proxy  = get_proxy(nproxy.clone())?;
-        return add_proxy_loc(domain, location, proxy);
+        return add_proxy_loc(location, proxy, target_dir);
     };
 
     Err(LpnlError::AddLocError { 
@@ -62,41 +89,40 @@ pub fn add_loc( // todo: sites-disabled dir checking and proceeding
     })
 }
 
-fn add_root_loc(domain: String, location: String, root: String) -> Result<(), LpnlError> {
+fn add_root_loc(location: String, root: String, target_dir: PathBuf) -> Result<(), LpnlError> {
 
-    let sites_enabled_conf_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
-    let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str.clone());
-    let sites_enabled_conf_as_str = match fs::read_to_string(&sites_enabled_conf_dir) {
+   let target_conf_str = target_dir.to_str().unwrap().to_string(); 
+    let target_conf_as_str = match fs::read_to_string(&target_dir) {
         Ok(s) => s,
         Err(e) => return Err(LpnlError::AddLocError { 
-            message: format!("Unable to read the '{sites_enabled_conf_str}' to get the config: {e}"),
+            message: format!("Unable to read the '{target_conf_str}' to get the config: {e}"),
             kind: AddLocErrorKind::FsFailure
         })
     };
 
     let conf_loc = format!("location {location}");
-    if sites_enabled_conf_as_str.lines().find(|&l| l.contains(&conf_loc)).is_none() {
-        match sites_enabled_conf_as_str.lines().find(|&l| l.trim().starts_with("location / {")) {
+    if target_conf_as_str.lines().find(|&l| l.contains(&conf_loc)).is_none() {
+        match target_conf_as_str.lines().find(|&l| l.trim().starts_with("location / {")) {
             Some(l) => {
                 let conf_part = format!("
                 location {location} {{ root {root}; }}
                 
                 location / {{");
-                let final_conf = sites_enabled_conf_as_str.replace(l, &conf_part);
+                let final_conf = target_conf_as_str.replace(l, &conf_part);
                 let test_conf = format!("events {{  }} http {{ {final_conf} }}");
                 proceed_check_nginx_tmp(&test_conf)?;
-                match fs::write(&sites_enabled_conf_str, &final_conf) {
+                match fs::write(&target_dir, &final_conf) {
                     Ok(_) => {
                         proceed_nginx()?;
                     }
                     Err(e) => return Err(LpnlError::AddLocError { 
-                            message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
+                            message: format!("Unable to update the config in '{target_conf_str}': {e}"),
                             kind: AddLocErrorKind::FsFailure
                        })
                     }
             }
             None => return Err(LpnlError::AddLocError { 
-                message: format!("Unable to find the 'location /' block in '{sites_enabled_conf_str}'."),
+                message: format!("Unable to find the 'location /' block in '{target_conf_str}'."),
                 kind: AddLocErrorKind::NotFound
             })
         }
@@ -111,21 +137,20 @@ fn add_root_loc(domain: String, location: String, root: String) -> Result<(), Lp
     Ok(println!("Location '{location}' with its root '{root}' created."))
 }
 
-fn add_proxy_loc(domain: String, location: String, proxy: String) -> Result<(), LpnlError> {
+fn add_proxy_loc(location: String, proxy: String, target_dir: PathBuf) -> Result<(), LpnlError> {
 
-    let sites_enabled_conf_str = format!("{NGINX_SITES_ENABLED_DIR}/{domain}.conf");
-    let sites_enabled_conf_dir = PathBuf::from(sites_enabled_conf_str.clone());
-    let sites_enabled_conf_as_str = match fs::read_to_string(&sites_enabled_conf_dir) {
+    let target_conf_str = target_dir.to_str().unwrap().to_string(); 
+    let target_conf_as_str = match fs::read_to_string(&target_dir) {
         Ok(s) => s,
         Err(e) => return Err(LpnlError::AddLocError { 
-            message: format!("Unable to read the '{sites_enabled_conf_str}' to get the config: {e}"),
+            message: format!("Unable to read the '{target_conf_str}' to get the config: {e}"),
             kind: AddLocErrorKind::FsFailure
         })
     };
 
     let conf_loc = format!("location {location}");
-    if sites_enabled_conf_as_str.lines().find(|&l| l.contains(&conf_loc)).is_none() {
-        match sites_enabled_conf_as_str.lines().find(|&l| l.trim().starts_with("location / {")) {
+    if target_conf_as_str.lines().find(|&l| l.contains(&conf_loc)).is_none() {
+        match target_conf_as_str.lines().find(|&l| l.trim().starts_with("location / {")) {
             Some(l) => {
                 let conf_part = format!("
                 location {location} {{
@@ -136,21 +161,21 @@ fn add_proxy_loc(domain: String, location: String, proxy: String) -> Result<(), 
                 }}
                 
                 location / {{");
-                let final_conf = sites_enabled_conf_as_str.replace(l, &conf_part);
+                let final_conf = target_conf_as_str.replace(l, &conf_part);
                 let test_conf = format!("events {{  }} http {{ {final_conf} }}");
                 proceed_check_nginx_tmp(&test_conf)?;
-                match fs::write(&sites_enabled_conf_str, &final_conf) {
+                match fs::write(&target_conf_str, &final_conf) {
                     Ok(_) => {
                         proceed_nginx()?;
                     }
                     Err(e) => return Err(LpnlError::AddLocError { 
-                        message: format!("Unable to update the config in '{sites_enabled_conf_str}': {e}"),
+                        message: format!("Unable to update the config in '{target_conf_str}': {e}"),
                         kind: AddLocErrorKind::FsFailure
                     })
                 }
             },
             None => return Err(LpnlError::AddLocError { 
-                message: format!("Unable to find the 'location /' block in '{sites_enabled_conf_str}'."),
+                message: format!("Unable to find the 'location /' block in '{target_conf_str}'."),
                 kind: AddLocErrorKind::NotFound
             })
         }
